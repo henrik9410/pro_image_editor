@@ -426,7 +426,7 @@ class _LayerWidgetState extends State<LayerWidget>
       width: stickerEditorConfigs.initWidth * layer.scale,
       child: FittedBox(
         fit: BoxFit.contain,
-        child: layer.widget,
+        child: Opacity(opacity: layer.opacity ?? 1, child: layer.widget),
       ),
     );
   }

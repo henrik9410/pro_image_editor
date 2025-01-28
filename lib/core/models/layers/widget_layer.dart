@@ -38,6 +38,7 @@ class WidgetLayer extends Layer {
     super.flipX,
     super.flipY,
     super.interaction,
+    this.opacity,
     this.exportConfigs = const WidgetLayerExportConfigs(),
   });
 
@@ -124,6 +125,7 @@ class WidgetLayer extends Layer {
 
   /// The widget to display on the layer.
   Widget widget;
+  double? opacity;
 
   /// Configuration settings for exporting a widget layer.
   ///
@@ -146,6 +148,7 @@ class WidgetLayer extends Layer {
       if (recordPosition != null) 'recordPosition': recordPosition,
       if (exportConfigMap.isNotEmpty) 'exportConfigs': exportConfigMap,
       'type': 'widget',
+      'opacity': opacity,
     };
   }
 
@@ -169,6 +172,7 @@ class WidgetLayer extends Layer {
     String? id,
     bool? flipX,
     bool? flipY,
+    double? opacity,
     LayerInteraction? interaction,
   }) {
     return WidgetLayer(
@@ -178,6 +182,7 @@ class WidgetLayer extends Layer {
       scale: scale ?? this.scale,
       id: id ?? this.id,
       flipX: flipX ?? this.flipX,
+      opacity: opacity ?? this.opacity,
       flipY: flipY ?? this.flipY,
       interaction: interaction ?? this.interaction,
     );

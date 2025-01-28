@@ -91,6 +91,7 @@ class LayerCopyManager {
       scale: layer.scale,
       flipX: layer.flipX,
       flipY: layer.flipY,
+      opacity: layer.opacity,
       interaction: layer.interaction.copyWith(),
       exportConfigs: layer.exportConfigs.copyWith(),
     );
