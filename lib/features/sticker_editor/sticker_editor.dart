@@ -73,6 +73,7 @@ class StickerEditorState extends State<StickerEditor>
     Navigator.of(context).pop(
       WidgetLayer(
         widget: widget,
+        typeOfLayer: 'sticker_layer',
         exportConfigs: exportConfigs ?? const WidgetLayerExportConfigs(),
       ),
     );
