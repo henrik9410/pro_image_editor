@@ -58,9 +58,15 @@ class PaintEditorBottombar extends StatelessWidget {
   /// Callback triggered when a new paint mode is selected.
   final Function(PaintMode mode) setMode;
 
+  Color _getColor(PaintMode mode) {
+    return paintMode == mode
+        ? configs.style.bottomBarActiveItemColor
+        : configs.style.bottomBarInactiveItemColor;
+  }
+
   @override
   Widget build(BuildContext context) {
-    double minWidth = min(MediaQuery.of(context).size.width, 600);
+    double minWidth = min(MediaQuery.sizeOf(context).width, 600);
     double maxWidth =
         max((paintModes.length + (enableZoom ? 1 : 0)) * 80, minWidth);
 
@@ -81,72 +87,62 @@ class PaintEditorBottombar extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minWidth: minWidth,
-                  maxWidth: MediaQuery.of(context).size.width > 660
+                  maxWidth: MediaQuery.sizeOf(context).width > 660
                       ? maxWidth
                       : double.infinity,
                 ),
-                child: StatefulBuilder(builder: (context, setStateBottomBar) {
-                  Color getColor(PaintMode mode) {
-                    return paintMode == mode
-                        ? configs.style.bottomBarActiveItemColor
-                        : configs.style.bottomBarInactiveItemColor;
-                  }
-
-                  return Wrap(
-                    direction: Axis.horizontal,
-                    alignment: WrapAlignment.spaceAround,
-                    runAlignment: WrapAlignment.spaceAround,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: <Widget>[
-                      if (enableZoom) ...[
-                        FlatIconTextButton(
-                          label: Text(
-                            i18n.moveAndZoom,
-                            style: TextStyle(
-                              fontSize: 10.0,
-                              color: getColor(PaintMode.moveAndZoom),
-                            ),
+                child: Wrap(
+                  direction: Axis.horizontal,
+                  alignment: WrapAlignment.spaceAround,
+                  runAlignment: WrapAlignment.spaceAround,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    if (enableZoom) ...[
+                      FlatIconTextButton(
+                        label: Text(
+                          i18n.moveAndZoom,
+                          style: TextStyle(
+                            fontSize: 10.0,
+                            color: _getColor(PaintMode.moveAndZoom),
                           ),
-                          icon: Icon(
-                            configs.icons.moveAndZoom,
-                            color: getColor(PaintMode.moveAndZoom),
-                          ),
-                          onPressed: () {
-                            setMode(PaintMode.moveAndZoom);
-                            setStateBottomBar(() {});
-                          },
                         ),
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          height: kBottomNavigationBarHeight - 14,
-                          width: 1,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(2),
-                            color: configs.style.bottomBarInactiveItemColor,
-                          ),
-                        )
-                      ],
-                      ...List.generate(
-                        paintModes.length,
-                        (index) {
-                          PaintModeBottomBarItem item = paintModes[index];
-                          Color color = getColor(item.mode);
-                          return FlatIconTextButton(
-                            label: Text(
-                              item.label,
-                              style: TextStyle(fontSize: 10.0, color: color),
-                            ),
-                            icon: Icon(item.icon, color: color),
-                            onPressed: () {
-                              setMode(item.mode);
-                              setStateBottomBar(() {});
-                            },
-                          );
+                        icon: Icon(
+                          configs.icons.moveAndZoom,
+                          color: _getColor(PaintMode.moveAndZoom),
+                        ),
+                        onPressed: () {
+                          setMode(PaintMode.moveAndZoom);
                         },
                       ),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        height: kBottomNavigationBarHeight - 14,
+                        width: 1,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(2),
+                          color: configs.style.bottomBarInactiveItemColor,
+                        ),
+                      )
                     ],
-                  );
-                }),
+                    ...List.generate(
+                      paintModes.length,
+                      (index) {
+                        PaintModeBottomBarItem item = paintModes[index];
+                        Color color = _getColor(item.mode);
+                        return FlatIconTextButton(
+                          label: Text(
+                            item.label,
+                            style: TextStyle(fontSize: 10.0, color: color),
+                          ),
+                          icon: Icon(item.icon, color: color),
+                          onPressed: () {
+                            setMode(item.mode);
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
