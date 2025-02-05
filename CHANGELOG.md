@@ -1,5 +1,17 @@
 # Changelog
 
+# 8.1.6
+- **FEAT**(layer): Add meta field to layermodels for custom metadata in export/import.
+
+# 8.1.5
+- **FEAT**(export): Optimize the export process by including only parameters that were modified in tune adjustments. This reduces the exported file size.  
+
+# 8.1.4
+- **FIX**(generation): Use `captureOnlyBackgroundImageArea` instead of `captureOnlyDrawingBounds` for background cropping.
+
+# 8.1.3
+- **PERF**(capture-image): Improved image capture performance by minimizing its impact on the main thread.  
+
 # 8.1.2
 - **FIX**(paint-editor): Ensure bottombar selection updates in UI when changed.
 - **FIX**(paint-editor): Correct appBar canRedo to use the proper function instead of canUndo.

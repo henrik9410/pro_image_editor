@@ -1,7 +1,6 @@
 // Dart imports:
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 // Flutter imports:
 import 'package:flutter/foundation.dart';
@@ -10,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import '/core/models/editor_configs/pro_image_editor_configs.dart';
 import '/core/models/history/state_history.dart';
 import '/core/models/layers/layer.dart';
+import '/core/platform/io/io_helper.dart';
 import '../../utils/decode_image.dart';
 import '../content_recorder/controllers/content_recorder_controller.dart';
 import 'constants/export_import_version.dart';
@@ -103,8 +103,10 @@ class ExportStateHistory {
   /// the system's temporary directory with the default name
   /// 'editor_state_history.json'.
   Future<File> toFile({String? path}) async {
+    assert(!kIsWeb, 'This function is not supported on the web.');
+
     // Get the system's temporary directory
-    String tempDir = Directory.systemTemp.path;
+    String tempDir = kIsWeb ? '' : Directory.systemTemp.path;
 
     String filePath = path ?? '$tempDir/editor_state_history.json';
 
@@ -183,8 +185,10 @@ class ExportStateHistory {
         if (enableFilterExport)
           minifier.convertHistoryKey('filters'): element.filters,
         if (enableTuneExport)
-          minifier.convertHistoryKey('tune'):
-              element.tuneAdjustments.map((item) => item.toMap()).toList(),
+          minifier.convertHistoryKey('tune'): element.tuneAdjustments
+              .where((item) => item.value != 0.0)
+              .map((item) => item.toMap())
+              .toList(),
         if (enableBlurExport) minifier.convertHistoryKey('blur'): element.blur,
         if (enableCropRotateExport)
           minifier.convertHistoryKey('transform'): transformConfigsMap,
