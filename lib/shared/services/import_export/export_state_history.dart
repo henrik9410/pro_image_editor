@@ -10,6 +10,8 @@ import '/core/models/editor_configs/pro_image_editor_configs.dart';
 import '/core/models/history/state_history.dart';
 import '/core/models/layers/layer.dart';
 import '/core/platform/io/io_helper.dart';
+import '/features/filter_editor/types/filter_matrix.dart';
+import '/features/tune_editor/models/tune_adjustment_matrix.dart';
 import '../../utils/decode_image.dart';
 import '../content_recorder/controllers/content_recorder_controller.dart';
 import 'constants/export_import_version.dart';
@@ -137,18 +139,49 @@ class ExportStateHistory {
 
     if (changes.isNotEmpty) changes.removeAt(0);
 
+    /// Helper function to collect history states up to a given position.
+    EditorStateHistory accumulateHistory(int position) {
+      FilterMatrix filters = [];
+      List<TuneAdjustmentMatrix> tuneAdjustments = [];
+      double? blur;
+      TransformConfigs? transformConfigs;
+
+      for (var item in changes.getRange(0, position)) {
+        if (item.filters.isNotEmpty) filters.addAll(item.filters);
+        if (item.blur != null) blur = item.blur;
+        if (item.tuneAdjustments.isNotEmpty) {
+          tuneAdjustments = item.tuneAdjustments;
+        }
+        if (item.transformConfigs != null) {
+          transformConfigs = item.transformConfigs;
+        }
+      }
+
+      return EditorStateHistory(
+        blur: blur,
+        filters: filters,
+        layers: position <= 0 ? [] : changes[position - 1].layers,
+        transformConfigs: transformConfigs,
+        tuneAdjustments: tuneAdjustments,
+      );
+    }
+
     /// Choose history span
     switch (_configs.historySpan) {
       case ExportHistorySpan.current:
-        if (editorPosition > 0) {
-          changes = [changes[editorPosition - 1]];
-        }
+        changes = [accumulateHistory(editorPosition)];
         break;
       case ExportHistorySpan.currentAndBackward:
         changes.removeRange(editorPosition, changes.length);
         break;
       case ExportHistorySpan.currentAndForward:
-        changes.removeRange(0, editorPosition - 1);
+        int position = editorPosition;
+
+        if (position != 0) {
+          var history = accumulateHistory(position);
+          changes.removeRange(0, position - 1);
+          changes[0] = history;
+        }
         break;
       case ExportHistorySpan.all:
         break;

@@ -385,6 +385,7 @@ class ProImageEditorState extends State<ProImageEditor>
     _controllers = MainEditorControllers(configs, callbacks);
     _desktopInteractionManager = DesktopInteractionManager(
       configs: configs,
+      callbacks: callbacks,
       context: context,
       onUpdateUI: mainEditorCallbacks?.handleUpdateUI,
       setState: setState,
@@ -1001,6 +1002,9 @@ class ProImageEditorState extends State<ProImageEditor>
         configs: configs,
         theme: _theme,
         callbacks: callbacks,
+        scaleFactor: textEditorConfigs.enableMainEditorZoomFactor
+            ? _interactiveViewer.currentState?.scaleFactor ?? 1.0
+            : 1.0,
       ),
 
       /// Small Duration is important for a smooth hero animation
@@ -1250,6 +1254,7 @@ class ProImageEditorState extends State<ProImageEditor>
         configs: configs,
         theme: _theme,
         callbacks: callbacks,
+        scaleFactor: _interactiveViewer.currentState?.scaleFactor ?? 1.0,
       ),
       duration: duration,
     );
