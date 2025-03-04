@@ -1,3 +1,6 @@
+// ignore_for_file: deprecated_member_use_from_same_package
+// TODO: Remove deprecated values
+
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui' as ui show Image;
@@ -33,6 +36,7 @@ import '../filter_editor/widgets/filter_generator.dart';
 import '../tune_editor/models/tune_adjustment_matrix.dart';
 import 'controllers/main_editor_controllers.dart';
 import 'mixins/main_editor_global_keys.dart';
+import 'providers/image_infos_provider.dart';
 import 'services/desktop_interaction_manager.dart';
 import 'services/layer_copy_manager.dart';
 import 'services/layer_interaction_manager.dart';
@@ -417,7 +421,7 @@ class ProImageEditorState extends State<ProImageEditor>
       );
     }
 
-    if (helperLines.hitVibration) {
+    if (helperLines.hitVibration ?? helperLines.enableHitVibration) {
       Vibration.hasVibrator().then((hasVibrator) {
         layerInteractionManager.deviceCanVibrate = hasVibrator;
 
@@ -917,11 +921,14 @@ class ProImageEditorState extends State<ProImageEditor>
     if (layerInteractionManager.rotateScaleLayerSizeHelper != null) {
       layerInteractionManager
         ..freeStyleHighPerformanceScaling =
-            paintEditorConfigs.freeStyleHighPerformanceScaling ?? !isDesktop
+            paintEditorConfigs.freeStyleHighPerformanceScaling ??
+                paintEditorConfigs.enableFreeStyleHighPerformanceScaling ??
+                !isDesktop
         ..calculateInteractiveButtonScaleRotate(
           configs: configs,
           activeLayer: _activeLayer!,
-          configEnabledHitVibration: helperLines.hitVibration,
+          configEnabledHitVibration:
+              helperLines.hitVibration ?? helperLines.enableHitVibration,
           details: details,
           editorSize: sizesManager.bodySize,
           layerTheme: layerInteraction.style,
@@ -942,20 +949,25 @@ class ProImageEditorState extends State<ProImageEditor>
     if (details.pointerCount == 1) {
       layerInteractionManager
         ..freeStyleHighPerformanceMoving =
-            paintEditorConfigs.freeStyleHighPerformanceMoving ?? isWebMobile
+            paintEditorConfigs.freeStyleHighPerformanceMoving ??
+                paintEditorConfigs.enableFreeStyleHighPerformanceMoving ??
+                isWebMobile
         ..calculateMovement(
           editorScaleFactor: editorScaleFactor,
           removeAreaKey: _removeAreaKey,
           activeLayer: _activeLayer!,
           context: context,
           detail: details,
-          configEnabledHitVibration: helperLines.hitVibration,
+          configEnabledHitVibration:
+              helperLines.hitVibration ?? helperLines.enableHitVibration,
           onHoveredRemoveChanged: _controllers.removeBtnCtrl.add,
         );
     } else if (details.pointerCount == 2) {
       layerInteractionManager
         ..freeStyleHighPerformanceScaling =
-            paintEditorConfigs.freeStyleHighPerformanceScaling ?? !isDesktop
+            paintEditorConfigs.freeStyleHighPerformanceScaling ??
+                paintEditorConfigs.enableFreeStyleHighPerformanceScaling ??
+                !isDesktop
         ..calculateScaleRotate(
           editorScaleFactor: editorScaleFactor,
           configs: configs,
@@ -963,7 +975,8 @@ class ProImageEditorState extends State<ProImageEditor>
           detail: details,
           editorSize: sizesManager.bodySize,
           screenPaddingHelper: sizesManager.imageMargin,
-          configEnabledHitVibration: helperLines.hitVibration,
+          configEnabledHitVibration:
+              helperLines.hitVibration ?? helperLines.enableHitVibration,
         );
     }
     mainEditorCallbacks?.handleUpdateLayer(_activeLayer!);
@@ -1079,7 +1092,8 @@ class ProImageEditorState extends State<ProImageEditor>
     _checkInteractiveViewer();
     isSubEditorOpen = true;
 
-    if (paintEditorConfigs.freeStyleHighPerformanceHero) {
+    if (paintEditorConfigs.freeStyleHighPerformanceHero ??
+        paintEditorConfigs.enableFreeStyleHighPerformanceHero) {
       layerInteractionManager.freeStyleHighPerformanceHero = true;
     }
 
@@ -1656,7 +1670,8 @@ class ProImageEditorState extends State<ProImageEditor>
   void doneEditing() async {
     if (_isProcessingFinalImage) return;
     if (!stateManager.canUndo && activeLayers.isEmpty) {
-      if (!imageGenerationConfigs.allowEmptyEditCompletion) {
+      if (!(imageGenerationConfigs.allowEmptyEditCompletion ??
+          imageGenerationConfigs.allowEmptyEditingCompletion)) {
         return closeEditor();
       }
     }
@@ -1937,43 +1952,50 @@ class ProImageEditorState extends State<ProImageEditor>
           }
           mainEditorCallbacks?.onPopInvoked?.call(didPop, result);
         },
-        child: ScreenResizeDetector(
-          ignoreSafeArea: false,
-          onResizeUpdate: (event) {
-            sizesManager
-              ..recalculateLayerPosition(
-                history: stateManager.stateHistory,
-                resizeEvent: ResizeEvent(
-                  oldContentSize: Size(
-                    event.oldContentSize.width,
-                    event.oldContentSize.height - sizesManager.allToolbarHeight,
+        child: ImageInfosProvider(
+          infos: _imageInfos,
+          imageFitToWidth:
+              _imageInfos?.renderedSize.width == sizesManager.bodySize.width,
+          child: ScreenResizeDetector(
+            ignoreSafeArea: false,
+            onResizeUpdate: (event) {
+              sizesManager
+                ..recalculateLayerPosition(
+                  history: stateManager.stateHistory,
+                  resizeEvent: ResizeEvent(
+                    oldContentSize: Size(
+                      event.oldContentSize.width,
+                      event.oldContentSize.height -
+                          sizesManager.allToolbarHeight,
+                    ),
+                    newContentSize: Size(
+                      event.newContentSize.width,
+                      event.newContentSize.height -
+                          sizesManager.allToolbarHeight,
+                    ),
                   ),
-                  newContentSize: Size(
-                    event.newContentSize.width,
-                    event.newContentSize.height - sizesManager.allToolbarHeight,
-                  ),
+                )
+                ..lastScreenSize = event.newContentSize;
+            },
+            onResizeEnd: (event) async {
+              await decodeImage();
+            },
+            child: AnnotatedRegion<SystemUiOverlayStyle>(
+              value: mainEditorConfigs.style.uiOverlayStyle,
+              child: Theme(
+                data: _theme,
+                child: SafeArea(
+                  child: LayoutBuilder(builder: (context, constraints) {
+                    sizesManager.editorSize = constraints.biggest;
+                    return Scaffold(
+                      backgroundColor: mainEditorConfigs.style.background,
+                      resizeToAvoidBottomInset: false,
+                      appBar: _buildAppBar(),
+                      body: _buildBody(),
+                      bottomNavigationBar: _buildBottomNavBar(),
+                    );
+                  }),
                 ),
-              )
-              ..lastScreenSize = event.newContentSize;
-          },
-          onResizeEnd: (event) async {
-            await decodeImage();
-          },
-          child: AnnotatedRegion<SystemUiOverlayStyle>(
-            value: mainEditorConfigs.style.uiOverlayStyle,
-            child: Theme(
-              data: _theme,
-              child: SafeArea(
-                child: LayoutBuilder(builder: (context, constraints) {
-                  sizesManager.editorSize = constraints.biggest;
-                  return Scaffold(
-                    backgroundColor: mainEditorConfigs.style.background,
-                    resizeToAvoidBottomInset: false,
-                    appBar: _buildAppBar(),
-                    body: _buildBody(),
-                    bottomNavigationBar: _buildBottomNavBar(),
-                  );
-                }),
               ),
             ),
           ),

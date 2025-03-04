@@ -13,6 +13,8 @@ import '/core/models/layers/layer.dart';
 import '/features/paint_editor/enums/paint_editor_enum.dart';
 import '/features/paint_editor/widgets/draw_paint_item.dart';
 import '/plugins/rounded_background_text/src/rounded_background_text.dart';
+import '/shared/widgets/censor/blur_area_item.dart';
+import '/shared/widgets/censor/pixelate_area_item.dart';
 import '../../styles/platform_text_styles.dart';
 import 'interaction_helper/layer_interaction_helper_widget.dart';
 
@@ -150,7 +152,11 @@ class _LayerWidgetState extends State<LayerWidget>
         _layerType = _LayerType.widget;
         break;
       case const (PaintLayer):
-        _layerType = _LayerType.canvas;
+        var layer = widget.layerData as PaintLayer;
+        _layerType = layer.item.mode == PaintMode.blur ||
+                layer.item.mode == PaintMode.pixelate
+            ? _LayerType.censor
+            : _LayerType.canvas;
         break;
       default:
         _layerType = _LayerType.unknown;
@@ -274,6 +280,7 @@ class _LayerWidgetState extends State<LayerWidget>
   /// Build the content with possible transformations
   Widget _buildPosition() {
     Matrix4 transformMatrix = _calcTransformMatrix();
+    var interaction = widget.layerData.interaction;
 
     return Hero(
       key: _layerKey,
@@ -318,7 +325,9 @@ class _LayerWidgetState extends State<LayerWidget>
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onSecondaryTapUp: isDesktop ? _onSecondaryTapUp : null,
-              onTap: _onTap,
+              onTap: interaction.enableSelection || interaction.enableEdit
+                  ? _onTap
+                  : null,
               child: Listener(
                 behavior: HitTestBehavior.translucent,
                 onPointerDown: _onPointerDown,
@@ -348,6 +357,8 @@ class _LayerWidgetState extends State<LayerWidget>
         return _buildWidgetLayer();
       case _LayerType.canvas:
         return _buildCanvas();
+      case _LayerType.censor:
+        return _buildCensorLayer();
       default:
         return const SizedBox.shrink();
     }
@@ -455,7 +466,26 @@ class _LayerWidgetState extends State<LayerWidget>
       ),
     );
   }
+
+  Widget _buildCensorLayer() {
+    var layer = _layer as PaintLayer;
+
+    switch (layer.item.mode) {
+      case PaintMode.pixelate:
+        return PixelateAreaItem(
+          censorConfigs: paintEditorConfigs.censorConfigs,
+          size: layer.size,
+        );
+      case PaintMode.blur:
+        return BlurAreaItem(
+          censorConfigs: paintEditorConfigs.censorConfigs,
+          size: layer.size,
+        );
+      default:
+        throw UnimplementedError();
+    }
+  }
 }
 
 // ignore: camel_case_types
-enum _LayerType { emoji, text, widget, canvas, unknown }
+enum _LayerType { emoji, text, widget, canvas, censor, unknown }

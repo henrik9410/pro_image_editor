@@ -1,5 +1,24 @@
 # Changelog
 
+## 8.3.4
+- **FIX**(grounded-design): Resolved an issue in the grounded design where switching between screens caused an error due to the ScrollController.
+
+## 8.3.3
+- **FIX**(layer-interaction): Resolved an issue where layers with blocked interaction also prevented interaction with background layers. Resolves [#374](https://github.com/hm21/pro_image_editor/issues/374)
+
+## 8.3.2
+- **FIX**(emoji-editor): Resolved an issue where categoryViewConfig caused an error. Resolves [#373](https://github.com/hm21/pro_image_editor/issues/373).
+
+## 8.3.1
+- **REFACTOR**(configs): Rename configuration properties for clarity.
+
+## 8.3.0
+- **FEAT**(paint-editor): Add a new 'pixelate' paint mode to censor specific areas. This paint mode is only supported when using the Impeller rendering engine.
+- **FEAT**(CensorConfigs): Add a new configuration option, `enableRoundArea`, which allows the censored area to be rounded instead of rectangular.
+
+## 8.2.0
+- **FEAT**(paint-editor): Add a new 'blur' paint mode to censor specific areas. 
+
 ## 8.1.12
 - **FEAT**(layers): Add missing `showLayers` config to enable/disable layers in paint and crop editor.
 

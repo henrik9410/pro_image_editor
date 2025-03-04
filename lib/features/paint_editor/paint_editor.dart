@@ -1,4 +1,6 @@
 // Dart imports:
+// ignore_for_file: deprecated_member_use_from_same_package
+
 import 'dart:async';
 import 'dart:math';
 
@@ -18,6 +20,7 @@ import '/features/paint_editor/widgets/paint_editor_bottombar.dart';
 import '/features/paint_editor/widgets/paint_editor_color_picker.dart';
 import '/pro_image_editor.dart';
 import '/shared/services/content_recorder/widgets/content_recorder.dart';
+import '/shared/services/shader_manager.dart';
 import '/shared/styles/platform_text_styles.dart';
 import '/shared/widgets/auto_image.dart';
 import '/shared/widgets/extended/extended_interactive_viewer.dart';
@@ -238,43 +241,63 @@ class PaintEditorState extends State<PaintEditor>
   /// The list is dynamically generated based on the configuration settings in
   /// the [PaintEditorConfigs] object.
   List<PaintModeBottomBarItem> get paintModes => [
-        if (paintEditorConfigs.hasOptionFreeStyle)
+        if (paintEditorConfigs.hasOptionFreeStyle ??
+            paintEditorConfigs.enableModeFreeStyle)
           PaintModeBottomBarItem(
             mode: PaintMode.freeStyle,
             icon: paintEditorConfigs.icons.freeStyle,
             label: i18n.paintEditor.freestyle,
           ),
-        if (paintEditorConfigs.hasOptionArrow)
+        if (paintEditorConfigs.hasOptionArrow ??
+            paintEditorConfigs.enableModeArrow)
           PaintModeBottomBarItem(
             mode: PaintMode.arrow,
             icon: paintEditorConfigs.icons.arrow,
             label: i18n.paintEditor.arrow,
           ),
-        if (paintEditorConfigs.hasOptionLine)
+        if (paintEditorConfigs.hasOptionLine ??
+            paintEditorConfigs.enableModeLine)
           PaintModeBottomBarItem(
             mode: PaintMode.line,
             icon: paintEditorConfigs.icons.line,
             label: i18n.paintEditor.line,
           ),
-        if (paintEditorConfigs.hasOptionRect)
+        if (paintEditorConfigs.hasOptionRect ??
+            paintEditorConfigs.enableModeRect)
           PaintModeBottomBarItem(
             mode: PaintMode.rect,
             icon: paintEditorConfigs.icons.rectangle,
             label: i18n.paintEditor.rectangle,
           ),
-        if (paintEditorConfigs.hasOptionCircle)
+        if (paintEditorConfigs.hasOptionCircle ??
+            paintEditorConfigs.enableModeCircle)
           PaintModeBottomBarItem(
             mode: PaintMode.circle,
             icon: paintEditorConfigs.icons.circle,
             label: i18n.paintEditor.circle,
           ),
-        if (paintEditorConfigs.hasOptionDashLine)
+        if (paintEditorConfigs.hasOptionDashLine ??
+            paintEditorConfigs.enableModeDashLine)
           PaintModeBottomBarItem(
             mode: PaintMode.dashLine,
             icon: paintEditorConfigs.icons.dashLine,
             label: i18n.paintEditor.dashLine,
           ),
-        if (paintEditorConfigs.hasOptionEraser)
+        if (paintEditorConfigs.enableModePixelate &&
+            ShaderManager.instance.isShaderFilterSupported)
+          PaintModeBottomBarItem(
+            mode: PaintMode.pixelate,
+            icon: paintEditorConfigs.icons.pixelate,
+            label: i18n.paintEditor.pixelate,
+          ),
+        if (paintEditorConfigs.enableModeBlur)
+          PaintModeBottomBarItem(
+            mode: PaintMode.blur,
+            icon: paintEditorConfigs.icons.blur,
+            label: i18n.paintEditor.blur,
+          ),
+        if (paintEditorConfigs.hasOptionEraser ??
+            paintEditorConfigs.enableModeEraser)
           PaintModeBottomBarItem(
             mode: PaintMode.eraser,
             icon: paintEditorConfigs.icons.eraser,
@@ -293,7 +316,8 @@ class PaintEditorState extends State<PaintEditor>
   void initState() {
     super.initState();
     paintCtrl = PaintController(
-      fill: paintEditorConfigs.initialFill,
+      fill: paintEditorConfigs.initialFill ??
+          paintEditorConfigs.isInitiallyFilled,
       mode: paintEditorConfigs.initialPaintMode,
       strokeWidth: paintEditorConfigs.style.initialStrokeWidth,
       color: paintEditorConfigs.style.initialColor,
@@ -301,7 +325,8 @@ class PaintEditorState extends State<PaintEditor>
       strokeMultiplier: 1,
     );
 
-    _isFillMode = paintEditorConfigs.initialFill;
+    _isFillMode =
+        paintEditorConfigs.initialFill ?? paintEditorConfigs.isInitiallyFilled;
 
     initStreamControllers();
 
@@ -317,6 +342,12 @@ class PaintEditorState extends State<PaintEditor>
       setState(() {});
       paintEditorCallbacks?.handleUpdateUI();
     });
+
+    /// Preload pixelate shader if enabled and supported
+    if (paintEditorConfigs.enableModePixelate &&
+        ShaderManager.instance.isShaderFilterSupported) {
+      ShaderManager.instance.loadShader(ShaderMode.pixelate);
+    }
   }
 
   @override
@@ -723,11 +754,13 @@ class PaintEditorState extends State<PaintEditor>
         maxScale: paintEditorConfigs.editorMaxScale,
         enableInteraction: paintMode == PaintMode.moveAndZoom,
         onInteractionStart: (details) {
-          _freeStyleHighPerformance =
-              (paintEditorConfigs.freeStyleHighPerformanceMoving ??
-                      !isDesktop) ||
-                  (paintEditorConfigs.freeStyleHighPerformanceScaling ??
-                      !isDesktop);
+          _freeStyleHighPerformance = (paintEditorConfigs
+                      .freeStyleHighPerformanceMoving ??
+                  paintEditorConfigs.enableFreeStyleHighPerformanceMoving ??
+                  !isDesktop) ||
+              (paintEditorConfigs.freeStyleHighPerformanceScaling ??
+                  paintEditorConfigs.enableFreeStyleHighPerformanceScaling ??
+                  !isDesktop);
 
           callbacks.paintEditorCallbacks?.onEditorZoomScaleStart?.call(details);
           setState(() {});
@@ -830,6 +863,7 @@ class PaintEditorState extends State<PaintEditor>
     return PaintCanvas(
       key: _paintCanvas,
       paintCtrl: paintCtrl,
+      paintEditorConfigs: paintEditorConfigs,
       drawAreaSize: mainBodySize ?? editorBodySize,
       freeStyleHighPerformance: _freeStyleHighPerformance,
       onRemoveLayer: (idList) {
