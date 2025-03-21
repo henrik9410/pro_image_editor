@@ -93,6 +93,9 @@ class LayerCopyManager {
       flipY: layer.flipY,
       opacity: layer.opacity,
       typeOfLayer: layer.typeOfLayer,
+      nameImage: layer.nameImage,
+      mimeType: layer.mimeType,
+      bytes: layer.bytes,
       interaction: layer.interaction.copyWith(),
       exportConfigs: layer.exportConfigs.copyWith(),
     );

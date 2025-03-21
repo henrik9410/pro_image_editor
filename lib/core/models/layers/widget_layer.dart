@@ -39,6 +39,9 @@ class WidgetLayer extends Layer {
     super.interaction,
     this.opacity,
     this.typeOfLayer,
+    this.bytes,
+    this.mimeType,
+    this.nameImage,
     this.exportConfigs = const WidgetLayerExportConfigs(),
     super.isDeleted,
     super.meta,
@@ -130,6 +133,13 @@ class WidgetLayer extends Layer {
   /// The widget to display on the layer.
   Widget widget;
 
+  ///for Layer with Image
+  Uint8List? bytes;
+  ///for Layer with Image
+  String? nameImage;
+  ///for Layer with Image
+  String? mimeType;
+
   /// The opacity of the widget layer.
   double? opacity;
   /// The type of the layer.
@@ -156,7 +166,10 @@ class WidgetLayer extends Layer {
       if (exportConfigMap.isNotEmpty) 'exportConfigs': exportConfigMap,
       'type': 'widget',
       'opacity': opacity,
-      'type_of_layer': typeOfLayer
+      'type_of_layer': typeOfLayer,
+      'bytes': bytes,
+      'nameImage': nameImage,
+      'mimeType': mimeType
     };
   }
 
@@ -182,6 +195,9 @@ class WidgetLayer extends Layer {
     bool? flipY,
     double? opacity,
     String? typeOfLayer,
+    String? nameImage,
+    String? mimeType,
+    Uint8List? bytes,
     LayerInteraction? interaction,
   }) {
     return WidgetLayer(
@@ -193,6 +209,9 @@ class WidgetLayer extends Layer {
       flipX: flipX ?? this.flipX,
       opacity: opacity ?? this.opacity,
       typeOfLayer: typeOfLayer ?? this.typeOfLayer,
+      nameImage: nameImage ?? this.nameImage,
+      mimeType: mimeType ?? this.mimeType,
+      bytes: bytes ?? this.bytes,
       flipY: flipY ?? this.flipY,
       interaction: interaction ?? this.interaction,
     );
