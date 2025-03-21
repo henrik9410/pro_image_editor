@@ -1,5 +1,48 @@
 # Changelog
 
+## 9.0.7
+- **FIX**(import): Resolve state restoration issue causing layer shift on cropped images. Resolves [#292](https://github.com/hm21/pro_image_editor/issues/292).
+
+## 9.0.6
+- **FIX**(state-history): Resolve issue where the state history limitation does not work when `enableBackgroundGeneration` is set to `false`.
+
+## 9.0.5
+- **FIX**(Wasm): Fixes an issue where image generation fails when using WebAssembly. Resolves [#391](https://github.com/hm21/pro_image_editor/issues/391).
+
+## 9.0.4
+- **DOCS**(readme): simplify README for better readability
+
+## 9.0.3
+- **FEAT**: Add getter `editorScaleFactor` to retrieve current scale factor. See pull request [#392](https://github.com/hm21/pro_image_editor/pull/392) for more details.
+
+## 9.0.2
+- **STYLE**: Improved Dart code formatting
+
+## 9.0.1
+- **FIX**(EditorImage): Support `File` type in addition to file path
+
+## 9.0.0
+- **FEAT**(callbacks): Add new callbacks that are triggered when a layer intersects with a helper line.
+- **FEAT**(TextLayer): Improve the text layer hit box for better gesture recognition.
+- **FEAT**(File): The file constructor in the main editor and sub-editors now supports adding just the file path in addition to the File itself.
+
+- **FIX**(Layers): Fix incorrect layer selection when drawing lines overlay other layers
+
+#### Breaking Changes
+- Removed the vibration package dependency and the support for internal feedback vibration. You can read more about this change and see example code on how to implement feedback support [here](https://github.com/hm21/pro_image_editor/discussions/386).
+- Replaced `mime`, `image`, `archive`, and `crypto` packages with smaller, internally versions.
+- Moved configuration `locale` inside `EmojiEditorConfigs` to `I18nEmojiEditor`.
+- Changed the default behavior so that emoji search text is no longer automatically translated, reducing the size of the application by about 1.5MB. The example of how to enable auto-translation or translate a specific locale can be found [here](https://github.com/hm21/pro_image_editor/blob/stable/example/lib/features/emoji_translate_example.dart).
+- Removed all deprecated configuration settings.
+
+
+## 8.3.6
+- **FIX**(design-grounded): Fixed an issue where the scrollbar in the grounded bottombar did not restore correctly after opening a subeditor.
+- **FIX**(design-whatsapp): Fixed an issue where the filter in the WhatsApp design could not be deselected.
+
+## 8.3.5
+- **FIX**(layer-stack): Resolved an issue where the outside overlay color on layers depended on the crop_rotate_editor instead of the active subeditor.
+
 ## 8.3.4
 - **FIX**(grounded-design): Resolved an issue in the grounded design where switching between screens caused an error due to the ScrollController.
 
