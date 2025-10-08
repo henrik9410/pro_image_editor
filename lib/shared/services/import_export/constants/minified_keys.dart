@@ -33,7 +33,7 @@ const Map<String, String> kMinifiedLayerKeys = {
   'scale': 's',
   'flipX': 'fx',
   'flipY': 'fy',
-  'isDeleted': 'de',
+  'groupId': 'g',
   'type': 't',
   'emoji': 'e',
   'text': 'te',
@@ -45,7 +45,6 @@ const Map<String, String> kMinifiedLayerKeys = {
   'colorMode': 'cm',
   'color': 'c',
   'background': 'b',
-  'colorPickerPosition': 'cp',
   'align': 'a',
   'fontScale': 'f',
   'customSecondaryColor': 'cs',
@@ -58,6 +57,8 @@ const Map<String, String> kMinifiedLayerKeys = {
   'decoration': 'd',
   'interaction': 'in',
   'meta': 'm',
+  'boxConstraints': 'bx',
+  'maxTextWidth': 'mt',
 
   /// Only in version < 8.0.0
   'enableInteraction': 'ei',
@@ -78,6 +79,7 @@ const Map<String, String> kMinifiedLayerInteractionKeys = {
 const Map<String, String> kMinifiedPaintKeys = {
   'mode': 'm',
   'offsets': 'o',
+  'erasedOffsets': 'eo',
   'color': 'c',
   'strokeWidth': 's',
   'opacity': 't',

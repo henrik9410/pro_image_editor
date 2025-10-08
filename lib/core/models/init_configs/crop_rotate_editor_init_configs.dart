@@ -1,5 +1,5 @@
 // Project imports:
-import '/features/crop_rotate_editor/models/transform_factors.dart';
+import '/features/crop_rotate_editor/models/transform_configs.dart';
 import '/shared/utils/decode_image.dart';
 import 'editor_init_configs.dart';
 
@@ -56,9 +56,6 @@ class CropRotateEditorInitConfigs extends EditorInitConfigs {
     super.appliedFilters,
     super.appliedTuneAdjustments,
     super.appliedBlurFactor,
-    super.onCloseEditor,
-    super.onImageEditingComplete,
-    super.onImageEditingStarted,
     super.convertToUint8List,
     super.enableCloseButton,
     required super.theme,

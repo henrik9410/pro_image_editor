@@ -12,14 +12,17 @@ import '/core/mixins/standalone_editor.dart';
 import '/core/models/editor_image.dart';
 import '/core/models/init_configs/blur_editor_init_configs.dart';
 import '/core/models/transform_helper.dart';
-import '/core/platform/io/io_helper.dart';
+import '/core/utils/size_utils.dart';
 import '/features/blur_editor/widgets/blur_editor_bottombar.dart';
+import '/shared/controllers/video_controller.dart';
 import '/shared/services/content_recorder/widgets/content_recorder.dart';
 import '/shared/utils/file_constructor_utils.dart';
+import '/shared/widgets/extended/extended_pop_scope.dart';
 import '/shared/widgets/layer/layer_stack.dart';
 import '/shared/widgets/transform/transformed_content_generator.dart';
-import '../crop_rotate_editor/models/transform_factors.dart';
-import '../filter_editor/widgets/filtered_image.dart';
+import '../crop_rotate_editor/models/transform_configs.dart';
+import '../filter_editor/widgets/filtered_widget.dart';
+import '../tune_editor/models/tune_adjustment_matrix.dart';
 import 'widgets/blur_editor_appbar.dart';
 
 /// The `BlurEditor` widget allows users to apply blur to images.
@@ -41,9 +44,11 @@ class BlurEditor extends StatefulWidget
   /// for the editor.
   const BlurEditor._({
     super.key,
-    required this.editorImage,
     required this.initConfigs,
-  });
+    this.editorImage,
+    this.videoController,
+  }) : assert(editorImage != null || videoController != null,
+            'Either editorImage or videoController must be provided.');
 
   /// Constructs a `BlurEditor` widget with image data loaded from memory.
   factory BlurEditor.memory(
@@ -60,7 +65,7 @@ class BlurEditor extends StatefulWidget
 
   /// Constructs a `BlurEditor` widget with an image loaded from a file.
   factory BlurEditor.file(
-    File file, {
+    dynamic file, {
     Key? key,
     required BlurEditorInitConfigs initConfigs,
   }) {
@@ -104,47 +109,48 @@ class BlurEditor extends StatefulWidget
   factory BlurEditor.autoSource({
     Key? key,
     Uint8List? byteArray,
-    File? file,
+    dynamic file,
     String? assetPath,
     String? networkUrl,
     EditorImage? editorImage,
+    ProVideoController? videoController,
     required BlurEditorInitConfigs initConfigs,
   }) {
-    if (byteArray != null || editorImage?.byteArray != null) {
-      return BlurEditor.memory(
-        byteArray ?? editorImage!.byteArray!,
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else if (file != null || editorImage?.file != null) {
-      return BlurEditor.file(
-        ensureFileInstance(file ?? editorImage!.file!),
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else if (networkUrl != null || editorImage?.networkUrl != null) {
-      return BlurEditor.network(
-        networkUrl ?? editorImage!.networkUrl!,
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else if (assetPath != null || editorImage?.assetPath != null) {
-      return BlurEditor.asset(
-        assetPath ?? editorImage!.assetPath!,
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else {
-      throw ArgumentError(
-          "Either 'byteArray', 'file', 'networkUrl' or 'assetPath' must "
-          'be provided.');
-    }
+    return BlurEditor._(
+      key: key,
+      editorImage: videoController != null
+          ? null
+          : editorImage ??
+              EditorImage(
+                byteArray: byteArray,
+                file: file,
+                networkUrl: networkUrl,
+                assetPath: assetPath,
+              ),
+      videoController: videoController,
+      initConfigs: initConfigs,
+    );
+  }
+
+  /// Constructs a `BlurEditor` widget with an video player.
+  factory BlurEditor.video(
+    ProVideoController videoController, {
+    Key? key,
+    required BlurEditorInitConfigs initConfigs,
+  }) {
+    return BlurEditor._(
+      key: key,
+      videoController: videoController,
+      initConfigs: initConfigs,
+    );
   }
 
   @override
   final BlurEditorInitConfigs initConfigs;
   @override
-  final EditorImage editorImage;
+  final EditorImage? editorImage;
+  @override
+  final ProVideoController? videoController;
 
   @override
   createState() => BlurEditorState();
@@ -164,6 +170,7 @@ class BlurEditorState extends State<BlurEditor>
 
   /// Represents the selected blur state.
   double get blurFactor => _blurFactor.value;
+
   set blurFactor(double value) {
     _blurFactor.value = value;
   }
@@ -199,6 +206,11 @@ class BlurEditorState extends State<BlurEditor>
     doneEditing(
       returnValue: blurFactor,
       editorImage: widget.editorImage,
+      blur: blurFactor,
+      matrixFilterList: appliedFilters,
+      matrixTuneAdjustmentsList:
+          appliedTuneAdjustments.map((item) => item.matrix).toList(),
+      transform: initialTransformConfigs,
     );
     blurEditorCallbacks?.handleDone();
   }
@@ -228,20 +240,23 @@ class BlurEditorState extends State<BlurEditor>
     return Theme(
       data: theme.copyWith(
           tooltipTheme: theme.tooltipTheme.copyWith(preferBelow: true)),
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: blurEditorConfigs.style.uiOverlayStyle,
-        child: SafeArea(
-          top: blurEditorConfigs.safeArea.top,
-          bottom: blurEditorConfigs.safeArea.bottom,
-          left: blurEditorConfigs.safeArea.left,
-          right: blurEditorConfigs.safeArea.right,
-          child: RecordInvisibleWidget(
-            controller: screenshotCtrl,
-            child: Scaffold(
-              backgroundColor: blurEditorConfigs.style.background,
-              appBar: _buildAppBar(),
-              body: _buildBody(),
-              bottomNavigationBar: _buildBottomNavBar(),
+      child: ExtendedPopScope(
+        canPop: blurEditorConfigs.enableGesturePop,
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: blurEditorConfigs.style.uiOverlayStyle,
+          child: SafeArea(
+            top: blurEditorConfigs.safeArea.top,
+            bottom: blurEditorConfigs.safeArea.bottom,
+            left: blurEditorConfigs.safeArea.left,
+            right: blurEditorConfigs.safeArea.right,
+            child: RecordInvisibleWidget(
+              controller: screenshotCtrl,
+              child: Scaffold(
+                backgroundColor: blurEditorConfigs.style.background,
+                appBar: _buildAppBar(),
+                body: _buildBody(),
+                bottomNavigationBar: _buildBottomNavBar(),
+              ),
             ),
           ),
         ),
@@ -272,45 +287,23 @@ class BlurEditorState extends State<BlurEditor>
         alignment: Alignment.center,
         fit: StackFit.expand,
         children: [
+          if (initConfigs.convertToUint8List && isVideoEditor)
+            _buildBackground(),
           ContentRecorder(
             controller: screenshotCtrl,
             child: Stack(
               alignment: Alignment.center,
               fit: StackFit.expand,
               children: [
-                Hero(
-                  tag: heroTag,
-                  createRectTween: (begin, end) =>
-                      RectTween(begin: begin, end: end),
-                  child: TransformedContentGenerator(
-                    configs: configs,
-                    transformConfigs:
-                        initialTransformConfigs ?? TransformConfigs.empty(),
-                    child: StreamBuilder(
-                        stream: _uiBlurStream.stream,
-                        builder: (context, snapshot) {
-                          return FilteredImage(
-                            width: getMinimumSize(mainImageSize, editorBodySize)
-                                .width,
-                            height:
-                                getMinimumSize(mainImageSize, editorBodySize)
-                                    .height,
-                            configs: configs,
-                            image: editorImage,
-                            filters: appliedFilters,
-                            tuneAdjustments: appliedTuneAdjustments,
-                            blurFactor: blurFactor,
-                          );
-                        }),
-                  ),
-                ),
+                if (!initConfigs.convertToUint8List || !isVideoEditor)
+                  _buildBackground(),
                 if (blurEditorConfigs.showLayers && layers != null)
                   LayerStack(
                     transformHelper: TransformHelper(
                       mainBodySize:
-                          getMinimumSize(mainBodySize, editorBodySize),
+                          getValidSizeOrDefault(mainBodySize, editorBodySize),
                       mainImageSize:
-                          getMinimumSize(mainImageSize, editorBodySize),
+                          getValidSizeOrDefault(mainImageSize, editorBodySize),
                       transformConfigs: initialTransformConfigs,
                       editorBodySize: editorBodySize,
                     ),
@@ -333,6 +326,34 @@ class BlurEditorState extends State<BlurEditor>
     });
   }
 
+  Widget _buildBackground() {
+    return Hero(
+      tag: heroTag,
+      createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+      child: TransformedContentGenerator(
+        isVideoPlayer: videoController != null,
+        configs: configs,
+        transformConfigs: initialTransformConfigs ?? TransformConfigs.empty(),
+        child: StreamBuilder(
+            stream: _uiBlurStream.stream,
+            builder: (context, snapshot) {
+              return FilteredWidget(
+                width:
+                    getValidSizeOrDefault(mainImageSize, editorBodySize).width,
+                height:
+                    getValidSizeOrDefault(mainImageSize, editorBodySize).height,
+                configs: configs,
+                image: editorImage,
+                videoPlayer: videoController?.videoPlayer,
+                filters: appliedFilters,
+                tuneAdjustments: appliedTuneAdjustments,
+                blurFactor: blurFactor,
+              );
+            }),
+      ),
+    );
+  }
+
   /// Builds the bottom navigation bar with blur slider.
   Widget? _buildBottomNavBar() {
     if (blurEditorConfigs.widgets.bottomBar != null) {
@@ -348,5 +369,35 @@ class BlurEditorState extends State<BlurEditor>
       onChanged: _onChanged,
       onChangedEnd: _onChangedEnd,
     );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties
+      ..add(DiagnosticsProperty<BlurEditorInitConfigs>(
+        'initConfigs',
+        widget.initConfigs,
+      ))
+      ..add(DiagnosticsProperty<EditorImage?>(
+        'editorImage',
+        widget.editorImage,
+      ))
+      ..add(DiagnosticsProperty<ProVideoController?>(
+        'videoController',
+        widget.videoController,
+      ))
+      ..add(DoubleProperty(
+        'blurFactor',
+        blurFactor,
+      ))
+      ..add(IterableProperty<List<double>>(
+        'appliedFilters',
+        appliedFilters,
+      ))
+      ..add(IterableProperty<TuneAdjustmentMatrix>(
+        'appliedTuneAdjustments',
+        appliedTuneAdjustments,
+      ));
   }
 }

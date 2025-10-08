@@ -5,19 +5,22 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '/core/constants/image_constants.dart';
 import '/core/mixins/converted_callbacks.dart';
 import '/core/mixins/converted_configs.dart';
 import '/core/mixins/standalone_editor.dart';
 import '/core/models/transform_helper.dart';
-import '/core/platform/io/io_helper.dart';
+import '/core/utils/size_utils.dart';
 import '/features/filter_editor/widgets/filter_editor_appbar.dart';
 import '/pro_image_editor.dart';
 import '/shared/services/content_recorder/widgets/content_recorder.dart';
 import '/shared/utils/file_constructor_utils.dart';
 import '/shared/widgets/layer/layer_stack.dart';
 import '/shared/widgets/transform/transformed_content_generator.dart';
+import 'constants/identity_matrix_constant.dart';
 import 'types/filter_matrix.dart';
-import 'widgets/filtered_image.dart';
+import 'utils/lerp_color_matrix_utils.dart';
+import 'widgets/filtered_widget.dart';
 
 export 'utils/filter_generator/filter_addons.dart';
 export 'utils/filter_generator/filter_model.dart';
@@ -43,9 +46,11 @@ class FilterEditor extends StatefulWidget
   /// for the editor.
   const FilterEditor._({
     super.key,
-    required this.editorImage,
     required this.initConfigs,
-  });
+    this.editorImage,
+    this.videoController,
+  }) : assert(editorImage != null || videoController != null,
+            'Either editorImage or videoController must be provided.');
 
   /// Constructs a `FilterEditor` widget with image data loaded from memory.
   factory FilterEditor.memory(
@@ -62,7 +67,7 @@ class FilterEditor extends StatefulWidget
 
   /// Constructs a `FilterEditor` widget with an image loaded from a file.
   factory FilterEditor.file(
-    File file, {
+    dynamic file, {
     Key? key,
     required FilterEditorInitConfigs initConfigs,
   }) {
@@ -107,46 +112,48 @@ class FilterEditor extends StatefulWidget
   factory FilterEditor.autoSource({
     Key? key,
     Uint8List? byteArray,
-    File? file,
+    dynamic file,
     String? assetPath,
     String? networkUrl,
     EditorImage? editorImage,
+    ProVideoController? videoController,
     required FilterEditorInitConfigs initConfigs,
   }) {
-    if (byteArray != null || editorImage?.byteArray != null) {
-      return FilterEditor.memory(
-        byteArray ?? editorImage!.byteArray!,
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else if (file != null || editorImage?.file != null) {
-      return FilterEditor.file(
-        ensureFileInstance(file ?? editorImage!.file!),
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else if (networkUrl != null || editorImage?.networkUrl != null) {
-      return FilterEditor.network(
-        networkUrl ?? editorImage!.networkUrl!,
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else if (assetPath != null || editorImage?.assetPath != null) {
-      return FilterEditor.asset(
-        assetPath ?? editorImage!.assetPath!,
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else {
-      throw ArgumentError(
-          "Either 'byteArray', 'file', 'networkUrl' or 'assetPath' must "
-          'be provided.');
-    }
+    return FilterEditor._(
+      key: key,
+      editorImage: videoController != null
+          ? null
+          : editorImage ??
+              EditorImage(
+                byteArray: byteArray,
+                file: file,
+                networkUrl: networkUrl,
+                assetPath: assetPath,
+              ),
+      videoController: videoController,
+      initConfigs: initConfigs,
+    );
   }
+
+  /// Constructs a `FilterEditor` widget with an video player.
+  factory FilterEditor.video(
+    ProVideoController videoController, {
+    Key? key,
+    required FilterEditorInitConfigs initConfigs,
+  }) {
+    return FilterEditor._(
+      key: key,
+      videoController: videoController,
+      initConfigs: initConfigs,
+    );
+  }
+
   @override
   final FilterEditorInitConfigs initConfigs;
   @override
-  final EditorImage editorImage;
+  final EditorImage? editorImage;
+  @override
+  final ProVideoController? videoController;
 
   @override
   createState() => FilterEditorState();
@@ -162,10 +169,19 @@ class FilterEditorState extends State<FilterEditor>
   late final StreamController<void> _uiFilterStream;
 
   /// The selected filter.
-  FilterModel selectedFilter = PresetFilters.none;
+  FilterModel get selectedFilter => _selectedFilter;
+  FilterModel _selectedFilter = PresetFilters.none;
+  set selectedFilter(FilterModel filter) {
+    setFilter(filter);
+  }
 
-  /// The opacity of the selected filter.
-  double filterOpacity = 1;
+  /// The opacity of the selected filter, ranging
+  /// from 0 (fully transparent) to 1 (fully opaque).
+  double get filterOpacity => _filterOpacity;
+  double _filterOpacity = 1;
+  set filterOpacity(double value) {
+    setFilterOpacity(value);
+  }
 
   @override
   void initState() {
@@ -197,6 +213,11 @@ class FilterEditorState extends State<FilterEditor>
     doneEditing(
       editorImage: widget.editorImage,
       returnValue: _getActiveFilters(),
+      blur: appliedBlurFactor,
+      matrixFilterList: _getActiveFilters(),
+      matrixTuneAdjustmentsList:
+          appliedTuneAdjustments.map((item) => item.matrix).toList(),
+      transform: initialTransformConfigs,
     );
     filterEditorCallbacks?.handleDone();
   }
@@ -204,27 +225,27 @@ class FilterEditorState extends State<FilterEditor>
   FilterMatrix _getActiveFilters() {
     return [
       ...appliedFilters,
-      ...selectedFilter.filters,
-      ColorFilterAddons.opacity(filterOpacity),
+      ...selectedFilter.filters.map(
+        (matrix) => lerpColorMatrix(identityMatrix, matrix, filterOpacity),
+      ),
     ];
   }
 
   /// Set the current filter.
   void setFilter(FilterModel filter) {
-    selectedFilter = filter;
+    _selectedFilter = filter;
     _uiFilterStream.add(null);
   }
 
   /// Set the current filter opacity.
   void setFilterOpacity(double value) {
-    filterOpacity = value;
+    _filterOpacity = value.clamp(0, 1);
     _uiFilterStream.add(null);
   }
 
   /// Handles changes in the filter factor value.
   void _onChanged(double value) {
-    filterOpacity = value;
-    _uiFilterStream.add(null);
+    setFilterOpacity(value);
     filterEditorCallbacks?.handleFilterFactorChange(value);
   }
 
@@ -242,6 +263,7 @@ class FilterEditorState extends State<FilterEditor>
       data: theme.copyWith(
           tooltipTheme: theme.tooltipTheme.copyWith(preferBelow: true)),
       child: ExtendedPopScope(
+        canPop: filterEditorConfigs.enableGesturePop,
         child: AnnotatedRegion<SystemUiOverlayStyle>(
           value: filterEditorConfigs.style.uiOverlayStyle,
           child: SafeArea(
@@ -286,45 +308,23 @@ class FilterEditorState extends State<FilterEditor>
         alignment: Alignment.center,
         fit: StackFit.expand,
         children: [
+          if (initConfigs.convertToUint8List && isVideoEditor)
+            _buildBackground(),
           ContentRecorder(
             controller: screenshotCtrl,
             child: Stack(
               alignment: Alignment.center,
               fit: StackFit.expand,
               children: [
-                Hero(
-                  tag: heroTag,
-                  createRectTween: (begin, end) =>
-                      RectTween(begin: begin, end: end),
-                  child: TransformedContentGenerator(
-                    configs: configs,
-                    transformConfigs:
-                        initialTransformConfigs ?? TransformConfigs.empty(),
-                    child: StreamBuilder(
-                        stream: _uiFilterStream.stream,
-                        builder: (context, snapshot) {
-                          return FilteredImage(
-                            width: getMinimumSize(mainImageSize, editorBodySize)
-                                .width,
-                            height:
-                                getMinimumSize(mainImageSize, editorBodySize)
-                                    .height,
-                            configs: configs,
-                            image: editorImage,
-                            filters: _getActiveFilters(),
-                            tuneAdjustments: appliedTuneAdjustments,
-                            blurFactor: appliedBlurFactor,
-                          );
-                        }),
-                  ),
-                ),
+                if (!initConfigs.convertToUint8List || !isVideoEditor)
+                  _buildBackground(),
                 if (filterEditorConfigs.showLayers && layers != null)
                   LayerStack(
                     transformHelper: TransformHelper(
                       mainBodySize:
-                          getMinimumSize(mainBodySize, editorBodySize),
+                          getValidSizeOrDefault(mainBodySize, editorBodySize),
                       mainImageSize:
-                          getMinimumSize(mainImageSize, editorBodySize),
+                          getValidSizeOrDefault(mainImageSize, editorBodySize),
                       editorBodySize: editorBodySize,
                       transformConfigs: initialTransformConfigs,
                     ),
@@ -345,6 +345,34 @@ class FilterEditorState extends State<FilterEditor>
         ],
       );
     });
+  }
+
+  Widget _buildBackground() {
+    return Hero(
+      tag: heroTag,
+      createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+      child: TransformedContentGenerator(
+        isVideoPlayer: videoController != null,
+        configs: configs,
+        transformConfigs: initialTransformConfigs ?? TransformConfigs.empty(),
+        child: StreamBuilder(
+            stream: _uiFilterStream.stream,
+            builder: (context, snapshot) {
+              return FilteredWidget(
+                width:
+                    getValidSizeOrDefault(mainImageSize, editorBodySize).width,
+                height:
+                    getValidSizeOrDefault(mainImageSize, editorBodySize).height,
+                configs: configs,
+                image: editorImage,
+                videoPlayer: videoController?.videoPlayer,
+                filters: _getActiveFilters(),
+                tuneAdjustments: appliedTuneAdjustments,
+                blurFactor: appliedBlurFactor,
+              );
+            }),
+      ),
+    );
   }
 
   /// Builds the bottom navigation bar with filter options.
@@ -391,17 +419,25 @@ class FilterEditorState extends State<FilterEditor>
             ),
             StatefulBuilder(builder: (context, setStateFilterList) {
               return FilterEditorItemList(
-                mainBodySize: getMinimumSize(mainBodySize, editorBodySize),
-                mainImageSize: getMinimumSize(mainImageSize, editorBodySize),
+                mainBodySize:
+                    getValidSizeOrDefault(mainBodySize, editorBodySize),
+                mainImageSize:
+                    getValidSizeOrDefault(mainImageSize, editorBodySize),
                 editorImage: editorImage,
+                image: editorImage != null
+                    ? null
+                    : widget.videoController!.thumbnails?.isNotEmpty == true
+                        ? Image(
+                            image: widget.videoController!.thumbnails!.first,
+                          )
+                        : Image.memory(kImageEditorTransparentBytes),
                 activeFilters: appliedFilters,
                 blurFactor: appliedBlurFactor,
                 configs: configs,
                 transformConfigs: initialTransformConfigs,
                 selectedFilter: selectedFilter.filters,
                 onSelectFilter: (filter) {
-                  selectedFilter = filter;
-                  _uiFilterStream.add(null);
+                  setFilter(filter);
                   setStateFilterList(() {});
                   filterEditorCallbacks?.handleFilterChanged(filter);
                   WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -414,5 +450,43 @@ class FilterEditorState extends State<FilterEditor>
         ),
       ),
     );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties
+      ..add(DiagnosticsProperty<FilterEditorInitConfigs>(
+        'initConfigs',
+        widget.initConfigs,
+      ))
+      ..add(DiagnosticsProperty<EditorImage?>(
+        'editorImage',
+        widget.editorImage,
+      ))
+      ..add(DiagnosticsProperty<ProVideoController?>(
+        'videoController',
+        widget.videoController,
+      ))
+      ..add(DiagnosticsProperty<FilterModel>(
+        'selectedFilter',
+        _selectedFilter,
+      ))
+      ..add(DoubleProperty(
+        'filterOpacity',
+        _filterOpacity,
+      ))
+      ..add(IterableProperty<TuneAdjustmentMatrix>(
+        'appliedTuneAdjustments',
+        appliedTuneAdjustments,
+      ))
+      ..add(DoubleProperty(
+        'appliedBlurFactor',
+        appliedBlurFactor,
+      ))
+      ..add(IterableProperty<List<double>>(
+        'appliedFilters',
+        appliedFilters,
+      ));
   }
 }

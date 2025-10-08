@@ -2,14 +2,16 @@
 import 'dart:convert';
 
 // Flutter imports:
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '/core/models/editor_image.dart';
 import '/core/models/history/state_history.dart';
 import '/core/models/layers/layer.dart';
 import '/core/platform/io/io_helper.dart';
-import '/features/crop_rotate_editor/models/transform_factors.dart';
-import '/features/filter_editor/utils/filter_generator/filter_addons.dart';
+import '/features/crop_rotate_editor/models/transform_configs.dart';
+import '/features/filter_editor/constants/identity_matrix_constant.dart';
+import '/features/filter_editor/utils/lerp_color_matrix_utils.dart';
 import '/features/tune_editor/models/tune_adjustment_matrix.dart';
 import '../../utils/parser/double_parser.dart';
 import '../../utils/parser/int_parser.dart';
@@ -67,7 +69,7 @@ class ImportStateHistory {
     final version = map[minifier.convertMainKey('version')] as String? ??
         ExportImportVersion.version_1_0_0;
     final stateHistory = <EditorStateHistory>[];
-    final widgetRecords = _parseWidgetRecords(map, version, minifier);
+    final widgetRecords = parseWidgetRecords(map, version, minifier);
     final lastRenderedImgSize =
         safeParseSize(map[minifier.convertMainKey('lastRenderedImgSize')]);
     final List<EditorImage> requirePrecacheList = [];
@@ -128,7 +130,7 @@ class ImportStateHistory {
             ));
 
             lastLayerStateHelper[id] =
-                Map<String, Object>.from(convertedLayerMap);
+                Map<String, dynamic>.from(convertedLayerMap);
           }
       }
 
@@ -138,7 +140,7 @@ class ImportStateHistory {
           : null;
 
       /// Filters
-      final filters = _parseFilters(historyItem[filtersKey], version);
+      final filters = parseFilters(historyItem[filtersKey], version);
 
       /// Tune Adjustments
       final tuneAdjustments = (historyItem[tuneKey] as List<dynamic>? ?? [])
@@ -174,27 +176,64 @@ class ImportStateHistory {
   }
 
   /// Helper to parse filters
-  static List<List<double>> _parseFilters(dynamic filtersData, String version) {
+  @visibleForTesting
+  static List<List<double>> parseFilters(dynamic filtersData, String version) {
     if (filtersData == null) return [];
 
-    switch (version) {
-      case ExportImportVersion.version_1_0_0:
-        return (filtersData as List<dynamic>).expand((el) {
-          final filterMatrix = List<List<double>>.from(el['filters'] ?? []);
-          final opacity = safeParseDouble(el['opacity'], fallback: 1);
-          if (opacity != 1) {
-            filterMatrix.add(ColorFilterAddons.opacity(opacity));
+    if (version.toVersionNumber() <=
+        ExportImportVersion.version_1_0_0.toVersionNumber()) {
+      return (filtersData as List<dynamic>).expand((el) {
+        final filterMatrix = <List<double>>[];
+        final rawFilters = List<List<dynamic>>.from(el['filters'] ?? []);
+        final opacity = safeParseDouble(el['opacity'], fallback: 1.0);
+
+        for (final f in rawFilters) {
+          final matrix = List<double>.from(f.map(safeParseDouble));
+
+          if (opacity == 1.0) {
+            filterMatrix.add(matrix);
+          } else {
+            filterMatrix.add(
+              lerpColorMatrix(identityMatrix, matrix, opacity),
+            );
           }
-          return filterMatrix;
-        }).toList();
-      default:
-        return (filtersData as List<dynamic>)
-            .map((el) => List<double>.from(el))
-            .toList();
+        }
+
+        return filterMatrix;
+      }).toList();
+    } else if (version.toVersionNumber() <=
+        ExportImportVersion.version_6_2_0.toVersionNumber()) {
+      final result = <List<double>>[];
+
+      for (final List<dynamic> matrix in filtersData) {
+        final opacity = safeParseDouble(matrix[18]);
+
+        final originalMatrix = List<double>.from(matrix.map(safeParseDouble));
+        if (opacity != 1) {
+          var updatedMatrix =
+              lerpColorMatrix(identityMatrix, originalMatrix, opacity);
+
+          /// Set opacity to 1 as the other values are updated with lerp.
+          updatedMatrix[18] = 1.0;
+          result.add(updatedMatrix);
+        } else {
+          result.add(originalMatrix);
+        }
+      }
+
+      // Apply opacity by blending with identity
+      return result;
+    } else {
+      return (filtersData as List<dynamic>)
+          .map((el) =>
+              List<double>.from((el as List<dynamic>).map(safeParseDouble)))
+          .toList();
     }
   }
 
-  static List<Uint8List> _parseWidgetRecords(
+  /// Helper to parse widget records
+  @visibleForTesting
+  static List<Uint8List> parseWidgetRecords(
     Map<String, dynamic> map,
     String version,
     EditorKeyMinifier minifier,

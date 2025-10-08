@@ -1,8 +1,10 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
 
-// Project imports:
-import 'package:pro_image_editor/pro_image_editor.dart';
+import '/core/constants/editor_style_constants.dart';
+import '/features/tune_editor/tune_editor.dart';
+import '/shared/widgets/editor_scrollbar.dart';
+import '/shared/widgets/flat_icon_text_button.dart';
 import '../frosted_glass_effect.dart';
 
 /// A custom bottom bar widget that creates a frosted glass effect for the
@@ -74,10 +76,8 @@ class FrostedGlassTuneBottombar extends StatelessWidget {
               const SizedBox(height: 4),
               SizedBox(
                 height: kBottomNavigationBarHeight,
-                child: Scrollbar(
+                child: EditorScrollbar(
                   controller: tuneEditor.bottomBarScrollCtrl,
-                  scrollbarOrientation: ScrollbarOrientation.bottom,
-                  thickness: isDesktop ? null : 0,
                   child: SingleChildScrollView(
                     controller: tuneEditor.bottomBarScrollCtrl,
                     scrollDirection: Axis.horizontal,

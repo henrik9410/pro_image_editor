@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '/features/crop_rotate_editor/enums/crop_mode.enum.dart';
 import '/features/crop_rotate_editor/models/aspect_ratio_item.dart';
 import '/features/crop_rotate_editor/models/rotate_direction.dart';
 import '../custom_widgets/crop_rotate_editor_widgets.dart';
 import '../icons/crop_rotate_editor_icons.dart';
 import '../styles/crop_rotate_editor_style.dart';
+import 'utils/base_sub_editor_configs.dart';
 import 'utils/editor_safe_area.dart';
-
 export '/features/crop_rotate_editor/models/rotate_direction.dart';
-export '/features/crop_rotate_editor/models/transform_factors.dart';
+export '/features/crop_rotate_editor/models/transform_configs.dart';
 export '../custom_widgets/crop_rotate_editor_widgets.dart';
 export '../icons/crop_rotate_editor_icons.dart';
 export '../styles/crop_rotate_editor_style.dart';
@@ -29,7 +30,7 @@ export '../styles/crop_rotate_editor_style.dart';
 ///   initAspectRatio: CropAspectRatios.custom,
 /// );
 /// ```
-class CropRotateEditorConfigs {
+class CropRotateEditorConfigs implements BaseSubEditorConfigs {
   /// Creates an instance of CropRotateEditorConfigs with optional settings.
   ///
   /// By default, all options are enabled, and the initial aspect ratio is set
@@ -37,6 +38,7 @@ class CropRotateEditorConfigs {
   const CropRotateEditorConfigs({
     this.desktopCornerDragArea = 7,
     this.mobileCornerDragArea = kMinInteractiveDimension,
+    this.enableGesturePop = true,
     this.enabled = true,
     this.showRotateButton = true,
     this.showFlipButton = true,
@@ -44,15 +46,17 @@ class CropRotateEditorConfigs {
     this.showResetButton = true,
     this.invertMouseScroll = false,
     this.invertDragDirection = false,
-    this.enableRoundCropper = false,
+    this.initialCropMode = CropMode.rectangular,
     this.enableTransformLayers = true,
     this.enableProvideImageInfos = false,
     this.enableDoubleTap = true,
+    this.enableFlipAnimation = true,
     this.showLayers = true,
     this.initAspectRatio,
     this.rotateAnimationCurve = Curves.decelerate,
     this.scaleAnimationCurve = Curves.decelerate,
     this.cropDragAnimationCurve = Curves.decelerate,
+    this.flipAnimationCurve = Curves.decelerate,
     this.fadeInOutsideCropAreaAnimationCurve = Curves.decelerate,
     this.rotateDirection = RotateDirection.left,
     this.opacityOutsideCropAreaDuration = const Duration(milliseconds: 100),
@@ -81,12 +85,6 @@ class CropRotateEditorConfigs {
         assert(desktopCornerDragArea > 0,
             'desktopCornerDragArea must be positive'),
         assert(
-            !enableRoundCropper || !showAspectRatioButton,
-            'In enableRoundCropper mode, showAspectRatioButton must be '
-            'disabled.'),
-        assert(!enableRoundCropper || initAspectRatio == 1,
-            'In enableRoundCropper mode, initAspectRatio must be 1.'),
-        assert(
             mobileCornerDragArea > 0, 'mobileCornerDragArea must be positive'),
         assert(
             maxWidthFactor == null ||
@@ -94,6 +92,10 @@ class CropRotateEditorConfigs {
             'maxWidthFactor must be greater than 0 and less than 1'),
         assert(doubleTapScaleFactor > 1,
             'doubleTapScaleFactor must be greater than 1');
+
+  /// {@macro enableGesturePop}
+  @override
+  final bool enableGesturePop;
 
   /// Indicates whether the editor is enabled.
   final bool enabled;
@@ -119,17 +121,20 @@ class CropRotateEditorConfigs {
   /// Enables double-tap zoom functionality when set to true.
   final bool enableDoubleTap;
 
+  /// Enables flip-animation when set to true.
+  final bool enableFlipAnimation;
+
   /// Determines if the mouse scroll direction should be inverted.
   final bool invertMouseScroll;
 
   /// Determines if the drag direction should be inverted.
   final bool invertDragDirection;
 
-  /// The cropper is round and not rectangular, which is optimal for cutting
-  /// profile images.
+  /// The initial crop mode to be used when the crop/rotate editor is opened.
   ///
-  /// The round cropper only supports an aspect ratio of 1.
-  final bool enableRoundCropper;
+  /// This determines the default cropping behavior or aspect ratio that will be
+  /// presented to the user before any manual adjustments are made.
+  final CropMode initialCropMode;
 
   /// A boolean flag that determines whether the `imageInfos` parameter
   /// should be included in the `onDone` callback.
@@ -188,6 +193,9 @@ class CropRotateEditorConfigs {
   /// The curve used for the rotation animation.
   final Curve rotateAnimationCurve;
 
+  /// The curve used for the flip animation.
+  final Curve flipAnimationCurve;
+
   /// The curve used for the scale animation, which is triggered when the
   /// image needs to resize due to rotation.
   final Curve scaleAnimationCurve;
@@ -229,27 +237,32 @@ class CropRotateEditorConfigs {
   /// [CropRotateEditorConfigs] with some properties updated while keeping the
   /// others unchanged.
   CropRotateEditorConfigs copyWith({
+    bool? enableGesturePop,
     bool? enabled,
     bool? showRotateButton,
     bool? showFlipButton,
     bool? showAspectRatioButton,
     bool? showResetButton,
+    bool? showLayers,
     bool? enableTransformLayers,
     bool? enableDoubleTap,
+    bool? enableFlipAnimation,
     bool? invertMouseScroll,
     bool? invertDragDirection,
+    CropMode? initialCropMode,
     bool? enableProvideImageInfos,
-    bool? showLayers,
     double? initAspectRatio,
     double? maxScale,
     double? mouseScaleFactor,
     double? doubleTapScaleFactor,
+    double? maxWidthFactor,
     List<AspectRatioItem>? aspectRatios,
     Duration? animationDuration,
     Duration? cropDragAnimationDuration,
     Duration? fadeInOutsideCropAreaAnimationDuration,
     Duration? opacityOutsideCropAreaDuration,
     Curve? rotateAnimationCurve,
+    Curve? flipAnimationCurve,
     Curve? scaleAnimationCurve,
     Curve? cropDragAnimationCurve,
     Curve? fadeInOutsideCropAreaAnimationCurve,
@@ -262,25 +275,28 @@ class CropRotateEditorConfigs {
     CropRotateEditorWidgets? widgets,
   }) {
     return CropRotateEditorConfigs(
-      safeArea: safeArea ?? this.safeArea,
-      enableProvideImageInfos:
-          enableProvideImageInfos ?? this.enableProvideImageInfos,
-      showLayers: showLayers ?? this.showLayers,
+      enableGesturePop: enableGesturePop ?? this.enableGesturePop,
       enabled: enabled ?? this.enabled,
       showRotateButton: showRotateButton ?? this.showRotateButton,
       showFlipButton: showFlipButton ?? this.showFlipButton,
       showAspectRatioButton:
           showAspectRatioButton ?? this.showAspectRatioButton,
       showResetButton: showResetButton ?? this.showResetButton,
+      showLayers: showLayers ?? this.showLayers,
       enableTransformLayers:
           enableTransformLayers ?? this.enableTransformLayers,
       enableDoubleTap: enableDoubleTap ?? this.enableDoubleTap,
+      enableFlipAnimation: enableFlipAnimation ?? this.enableFlipAnimation,
       invertMouseScroll: invertMouseScroll ?? this.invertMouseScroll,
       invertDragDirection: invertDragDirection ?? this.invertDragDirection,
+      initialCropMode: initialCropMode ?? this.initialCropMode,
+      enableProvideImageInfos:
+          enableProvideImageInfos ?? this.enableProvideImageInfos,
       initAspectRatio: initAspectRatio ?? this.initAspectRatio,
       maxScale: maxScale ?? this.maxScale,
       mouseScaleFactor: mouseScaleFactor ?? this.mouseScaleFactor,
       doubleTapScaleFactor: doubleTapScaleFactor ?? this.doubleTapScaleFactor,
+      maxWidthFactor: maxWidthFactor ?? this.maxWidthFactor,
       aspectRatios: aspectRatios ?? this.aspectRatios,
       animationDuration: animationDuration ?? this.animationDuration,
       cropDragAnimationDuration:
@@ -291,6 +307,7 @@ class CropRotateEditorConfigs {
       opacityOutsideCropAreaDuration:
           opacityOutsideCropAreaDuration ?? this.opacityOutsideCropAreaDuration,
       rotateAnimationCurve: rotateAnimationCurve ?? this.rotateAnimationCurve,
+      flipAnimationCurve: flipAnimationCurve ?? this.flipAnimationCurve,
       scaleAnimationCurve: scaleAnimationCurve ?? this.scaleAnimationCurve,
       cropDragAnimationCurve:
           cropDragAnimationCurve ?? this.cropDragAnimationCurve,
@@ -301,6 +318,7 @@ class CropRotateEditorConfigs {
       desktopCornerDragArea:
           desktopCornerDragArea ?? this.desktopCornerDragArea,
       mobileCornerDragArea: mobileCornerDragArea ?? this.mobileCornerDragArea,
+      safeArea: safeArea ?? this.safeArea,
       style: style ?? this.style,
       icons: icons ?? this.icons,
       widgets: widgets ?? this.widgets,

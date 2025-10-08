@@ -53,7 +53,10 @@ class _ReorderLayerExampleState extends State<ReorderLayerExample>
       callbacks: ProImageEditorCallbacks(
         onImageEditingStarted: onImageEditingStarted,
         onImageEditingComplete: onImageEditingComplete,
-        onCloseEditor: () => onCloseEditor(enablePop: !isDesktopMode(context)),
+        onCloseEditor: (editorMode) => onCloseEditor(
+          editorMode: editorMode,
+          enablePop: !isDesktopMode(context),
+        ),
         mainEditorCallbacks: MainEditorCallbacks(
           helperLines: HelperLinesCallbacks(onLineHit: vibrateLineHit),
         ),
@@ -68,7 +71,7 @@ class _ReorderLayerExampleState extends State<ReorderLayerExample>
                 ReactiveWidget(
                   stream: rebuildStream,
                   builder: (_) =>
-                      editor.selectedLayerIndex >= 0 || editor.isSubEditorOpen
+                      editor.isLayerBeingTransformed || editor.isSubEditorOpen
                           ? const SizedBox.shrink()
                           : Positioned(
                               bottom: 20,
@@ -81,27 +84,29 @@ class _ReorderLayerExampleState extends State<ReorderLayerExample>
                                     bottomRight: Radius.circular(100),
                                   ),
                                 ),
-                                child: IconButton(
-                                  onPressed: () {
-                                    showModalBottomSheet(
-                                      context: context,
-                                      builder: (context) {
-                                        return ReorderLayerSheet(
-                                          layers: editor.activeLayers,
-                                          onReorder: (oldIndex, newIndex) {
-                                            editor.moveLayerListPosition(
-                                              oldIndex: oldIndex,
-                                              newIndex: newIndex,
-                                            );
-                                            Navigator.pop(context);
-                                          },
-                                        );
-                                      },
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.reorder,
-                                    color: Colors.white,
+                                child: GestureInterceptor(
+                                  child: IconButton(
+                                    onPressed: () {
+                                      showModalBottomSheet(
+                                        context: context,
+                                        builder: (context) => SafeArea(
+                                          child: ReorderLayerSheet(
+                                            layers: editor.activeLayers,
+                                            onReorder: (oldIndex, newIndex) {
+                                              editor.moveLayerListPosition(
+                                                oldIndex: oldIndex,
+                                                newIndex: newIndex,
+                                              );
+                                              Navigator.pop(context);
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.reorder,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -212,7 +217,6 @@ class _ReorderLayerSheetState extends State<ReorderLayerSheet> {
                                         item: layer.item,
                                         scale: layer.scale,
                                         enabledHitDetection: false,
-                                        freeStyleHighPerformance: false,
                                       ),
                                     ),
                             ),

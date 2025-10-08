@@ -149,7 +149,7 @@ class EditorImage {
 
   /// A future that retrieves the image data as a `Uint8List` from the
   /// appropriate source based on the `EditorImageType`.
-  Future<Uint8List> safeByteArray(BuildContext context) async {
+  Future<Uint8List> safeByteArray([BuildContext? context]) async {
     Uint8List bytes;
     switch (type) {
       case EditorImageType.memory:
@@ -165,13 +165,15 @@ class EditorImage {
         break;
     }
 
-    if (!context.mounted) return bytes;
+    if (context != null) {
+      if (!context.mounted) return bytes;
 
-    await precacheImage(
-      MemoryImage(bytes),
-      context,
-      size: MediaQuery.sizeOf(context),
-    );
+      await precacheImage(
+        MemoryImage(bytes),
+        context,
+        size: MediaQuery.sizeOf(context),
+      );
+    }
 
     byteArray = bytes;
 
@@ -226,6 +228,35 @@ class EditorImage {
   int _hashUint8List(Uint8List? list) {
     if (list == null) return 0;
     return list.fold(0, (hash, byte) => hash * 31 + byte);
+  }
+
+  /// Creates a copy of this [EditorImage] with optional new values for its
+  /// fields.
+  ///
+  /// If a parameter is not provided, the current value from this instance
+  /// is used.
+  /// - [byteArray]: The new image data as a [Uint8List]. If provided, a
+  /// copy is created.
+  /// - [file]: The new image file as a [File]. If provided, a new [File]
+  /// instance is created with the same path.
+  /// - [networkUrl]: The new network URL for the image.
+  /// - [assetPath]: The new asset path for the image.
+  ///
+  /// Returns a new [EditorImage] instance with the updated values.
+  EditorImage copyWith({
+    Uint8List? byteArray,
+    File? file,
+    String? networkUrl,
+    String? assetPath,
+  }) {
+    final bytes = byteArray ?? this.byteArray;
+    final fileHelper = file ?? this.file;
+    return EditorImage(
+      byteArray: bytes != null ? Uint8List.fromList(bytes) : null,
+      file: fileHelper != null ? File(fileHelper.path) : null,
+      networkUrl: networkUrl ?? this.networkUrl,
+      assetPath: assetPath ?? this.assetPath,
+    );
   }
 }
 

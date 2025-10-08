@@ -57,9 +57,12 @@ class _SignatureDrawingExampleState extends State<SignatureDrawingExample>
                     initConfigs: PaintEditorInitConfigs(
                       theme: Theme.of(context),
                       convertToUint8List: true,
-                      onImageEditingStarted: onImageEditingStarted,
-                      onImageEditingComplete: onImageEditingComplete,
-                      onCloseEditor: onCloseEditor,
+                      callbacks: ProImageEditorCallbacks(
+                        onImageEditingStarted: onImageEditingStarted,
+                        onImageEditingComplete: onImageEditingComplete,
+                        onCloseEditor: (editorMode) =>
+                            onCloseEditor(editorMode: editorMode),
+                      ),
                       configs: ProImageEditorConfigs(
                         designMode: platformDesignMode,
                         paintEditor: PaintEditorConfigs(
@@ -88,6 +91,7 @@ class _SignatureDrawingExampleState extends State<SignatureDrawingExample>
                         ),
                         imageGeneration: ImageGenerationConfigs(
                           outputFormat: OutputFormat.png,
+                          cropToImageBounds: false,
                           customPixelRatio:
                               MediaQuery.devicePixelRatioOf(context),
                           maxOutputSize: const Size(2000, 2000),
@@ -111,9 +115,12 @@ class _SignatureDrawingExampleState extends State<SignatureDrawingExample>
                     initConfigs: PaintEditorInitConfigs(
                       theme: Theme.of(context),
                       convertToUint8List: true,
-                      onImageEditingStarted: onImageEditingStarted,
-                      onImageEditingComplete: onImageEditingComplete,
-                      onCloseEditor: onCloseEditor,
+                      callbacks: ProImageEditorCallbacks(
+                        onImageEditingStarted: onImageEditingStarted,
+                        onImageEditingComplete: onImageEditingComplete,
+                        onCloseEditor: (editorMode) =>
+                            onCloseEditor(editorMode: editorMode),
+                      ),
                       configs: ProImageEditorConfigs(
                         designMode: platformDesignMode,
                         paintEditor: const PaintEditorConfigs(
@@ -123,7 +130,8 @@ class _SignatureDrawingExampleState extends State<SignatureDrawingExample>
                           ),
                         ),
                         imageGeneration: ImageGenerationConfigs(
-                          outputFormat: OutputFormat.png,
+                          outputFormat: OutputFormat.jpg,
+                          cropToImageBounds: false,
                           customPixelRatio:
                               MediaQuery.devicePixelRatioOf(context),
                           maxOutputSize: const Size(2000, 2000),

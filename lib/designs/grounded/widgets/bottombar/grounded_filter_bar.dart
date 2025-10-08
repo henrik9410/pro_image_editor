@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '/core/mixins/converted_configs.dart';
 import '/core/mixins/editor_configs_mixin.dart';
+import '/core/utils/size_utils.dart';
 import '/designs/grounded/grounded_design.dart';
 import '/pro_image_editor.dart';
+import '/shared/widgets/editor_scrollbar.dart';
 
 /// A widget that represents a filter bar in the image editor.
 ///
@@ -20,6 +22,7 @@ class GroundedFilterBar extends StatefulWidget with SimpleConfigsAccess {
     required this.configs,
     required this.callbacks,
     required this.editor,
+    this.image,
   });
 
   /// The editor state that holds filter and editing information.
@@ -30,6 +33,9 @@ class GroundedFilterBar extends StatefulWidget with SimpleConfigsAccess {
 
   @override
   final ProImageEditorCallbacks callbacks;
+
+  /// A custom background image which can be used instant of the editorImage
+  final Widget? image;
 
   @override
   State<GroundedFilterBar> createState() => _GroundedFilterBarState();
@@ -61,10 +67,8 @@ class _GroundedFilterBarState extends State<GroundedFilterBar>
     return GroundedBottomWrapper(
       theme: configs.theme,
       children: (constraints) => [
-        Scrollbar(
+        EditorScrollbar(
           controller: _bottomBarScrollCtrl,
-          scrollbarOrientation: ScrollbarOrientation.top,
-          thickness: isDesktop ? null : 0,
           child: _buildFunctions(constraints),
         ),
         GroundedBottomBar(
@@ -115,11 +119,12 @@ class _GroundedFilterBarState extends State<GroundedFilterBar>
               listHeight: kGroundedSubBarHeight,
               previewImageSize: const Size(48, 48),
               borderRadius: BorderRadius.circular(2),
-              mainBodySize: widget.editor.getMinimumSize(
+              mainBodySize: getValidSizeOrDefault(
                   widget.editor.mainBodySize, widget.editor.editorBodySize),
-              mainImageSize: widget.editor.getMinimumSize(
+              mainImageSize: getValidSizeOrDefault(
                   widget.editor.mainImageSize, widget.editor.editorBodySize),
               editorImage: widget.editor.editorImage,
+              image: widget.image,
               activeFilters: widget.editor.appliedFilters,
               blurFactor: widget.editor.appliedBlurFactor,
               configs: configs,

@@ -47,7 +47,7 @@ class _GroundedDesignExampleState extends State<GroundedDesignExample>
         callbacks: ProImageEditorCallbacks(
           onImageEditingStarted: onImageEditingStarted,
           onImageEditingComplete: onImageEditingComplete,
-          onCloseEditor: onCloseEditor,
+          onCloseEditor: (editorMode) => onCloseEditor(editorMode: editorMode),
           mainEditorCallbacks: MainEditorCallbacks(
             helperLines: HelperLinesCallbacks(onLineHit: vibrateLineHit),
             onStartCloseSubEditor: (value) {
@@ -128,11 +128,11 @@ class _GroundedDesignExampleState extends State<GroundedDesignExample>
                               ),
                               actions: <Widget>[
                                 ElevatedButton(
-                                  child: const Text('Got it'),
+                                  child: const Text('Okay'),
                                   onPressed: () {
                                     if (newColor != null) {
                                       setState(() =>
-                                          editorState.colorChanged(newColor!));
+                                          editorState.setColor(newColor!));
                                     }
                                     Navigator.of(context).pop();
                                   },
@@ -191,7 +191,7 @@ class _GroundedDesignExampleState extends State<GroundedDesignExample>
                               ),
                               actions: <Widget>[
                                 ElevatedButton(
-                                  child: const Text('Got it'),
+                                  child: const Text('Okay'),
                                   onPressed: () {
                                     if (newColor != null) {
                                       setState(() =>
@@ -357,7 +357,7 @@ class _GroundedDesignExampleState extends State<GroundedDesignExample>
           ),
           stickerEditor: StickerEditorConfigs(
             enabled: true,
-            buildStickers: (setLayer, scrollController) => DemoBuildStickers(
+            builder: (setLayer, scrollController) => DemoBuildStickers(
                 categoryColor: const Color(0xFF161616),
                 setLayer: setLayer,
                 scrollController: scrollController),

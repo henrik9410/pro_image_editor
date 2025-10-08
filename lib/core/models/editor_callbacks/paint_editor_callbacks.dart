@@ -2,7 +2,7 @@
 import 'package:flutter/widgets.dart';
 
 // Project imports:
-import '/features/paint_editor/enums/paint_editor_enum.dart';
+import '/features/paint_editor/paint_editor.dart';
 import 'standalone_editor_callbacks.dart';
 
 /// A class representing callbacks for the paint editor.
@@ -17,7 +17,10 @@ class PaintEditorCallbacks extends StandaloneEditorCallbacks {
     this.onEditorZoomScaleStart,
     this.onEditorZoomScaleUpdate,
     this.onEditorZoomScaleEnd,
+    this.onEditorZoomMatrix4Change,
     this.onOpacityChange,
+    this.onDoubleTap,
+    this.onTap,
     super.onInit,
     super.onAfterViewInit,
     super.onUndo,
@@ -52,6 +55,18 @@ class PaintEditorCallbacks extends StandaloneEditorCallbacks {
 
   /// A callback function that is triggered when the color is changed.
   final Function()? onColorChanged;
+
+  /// A callback function that is triggered when the user `doubleTap`
+  /// on the body.
+  final Function()? onDoubleTap;
+
+  /// Callback function that is triggered when a tap down event occurs on the
+  /// canvas.
+  ///
+  /// The [details] parameter provides information about the position and
+  /// characteristics of the tap event. This callback can be used to handle
+  /// custom tap interactions within the paint editor.
+  final Function(PaintEditorState editor, TapDownDetails details)? onTap;
 
   /// Called when the user ends a pan or scale gesture on the widget.
   ///
@@ -97,6 +112,9 @@ class PaintEditorCallbacks extends StandaloneEditorCallbacks {
   /// interaction.
   ///  * [onEditorZoomScaleEnd], which handles the end of the same interaction.
   final GestureScaleStartCallback? onEditorZoomScaleStart;
+
+  /// Called when the editor zoom matrix changes.
+  final Function(Matrix4 value)? onEditorZoomMatrix4Change;
 
   /// Called when the user updates a pan or scale gesture on the editor.
   ///
@@ -171,5 +189,53 @@ class PaintEditorCallbacks extends StandaloneEditorCallbacks {
   void handleColorChanged() {
     onColorChanged?.call();
     handleUpdateUI();
+  }
+
+  /// Creates a copy with modified editor callbacks.
+  PaintEditorCallbacks copyWith({
+    ValueChanged<double>? onLineWidthChanged,
+    ValueChanged<PaintMode>? onPaintModeChanged,
+    ValueChanged<bool>? onToggleFill,
+    ValueChanged<double>? onOpacityChange,
+    Function()? onDrawingDone,
+    Function()? onColorChanged,
+    GestureScaleEndCallback? onEditorZoomScaleEnd,
+    GestureScaleStartCallback? onEditorZoomScaleStart,
+    Function(Matrix4 value)? onEditorZoomMatrix4Change,
+    GestureScaleUpdateCallback? onEditorZoomScaleUpdate,
+    Function()? onDoubleTap,
+    Function(PaintEditorState editor, TapDownDetails details)? onTap,
+    Function()? onInit,
+    Function()? onAfterViewInit,
+    Function()? onUpdateUI,
+    Function()? onDone,
+    Function()? onRedo,
+    Function()? onUndo,
+    Function()? onCloseEditor,
+  }) {
+    return PaintEditorCallbacks(
+      onLineWidthChanged: onLineWidthChanged ?? this.onLineWidthChanged,
+      onPaintModeChanged: onPaintModeChanged ?? this.onPaintModeChanged,
+      onToggleFill: onToggleFill ?? this.onToggleFill,
+      onOpacityChange: onOpacityChange ?? this.onOpacityChange,
+      onDrawingDone: onDrawingDone ?? this.onDrawingDone,
+      onColorChanged: onColorChanged ?? this.onColorChanged,
+      onEditorZoomScaleEnd: onEditorZoomScaleEnd ?? this.onEditorZoomScaleEnd,
+      onEditorZoomScaleStart:
+          onEditorZoomScaleStart ?? this.onEditorZoomScaleStart,
+      onEditorZoomMatrix4Change:
+          onEditorZoomMatrix4Change ?? this.onEditorZoomMatrix4Change,
+      onEditorZoomScaleUpdate:
+          onEditorZoomScaleUpdate ?? this.onEditorZoomScaleUpdate,
+      onDoubleTap: onDoubleTap ?? this.onDoubleTap,
+      onTap: onTap ?? this.onTap,
+      onInit: onInit ?? this.onInit,
+      onAfterViewInit: onAfterViewInit ?? this.onAfterViewInit,
+      onUpdateUI: onUpdateUI ?? this.onUpdateUI,
+      onDone: onDone ?? this.onDone,
+      onRedo: onRedo ?? this.onRedo,
+      onUndo: onUndo ?? this.onUndo,
+      onCloseEditor: onCloseEditor ?? this.onCloseEditor,
+    );
   }
 }

@@ -34,7 +34,7 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
       callbacks: ProImageEditorCallbacks(
         onImageEditingStarted: onImageEditingStarted,
         onImageEditingComplete: onImageEditingComplete,
-        onCloseEditor: onCloseEditor,
+        onCloseEditor: (editorMode) => onCloseEditor(editorMode: editorMode),
         mainEditorCallbacks: MainEditorCallbacks(
           helperLines: HelperLinesCallbacks(onLineHit: vibrateLineHit),
         ),
@@ -213,7 +213,6 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
           showToggleFillButton: true,
           showLineWidthAdjustmentButton: true,
           isInitiallyFilled: true,
-          enableFreeStyleHighPerformanceScaling: true,
           initialPaintMode: PaintMode.freeStyle,
           style: PaintEditorStyle(
             appBarColor: Color(0xFFE1E1E1),

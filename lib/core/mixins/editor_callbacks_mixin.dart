@@ -1,6 +1,7 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
 
+import '../enums/editor_mode.dart';
 import '../models/editor_callbacks/pro_image_editor_callbacks.dart';
 
 /// A mixin providing access to simple editor callbacks.
@@ -55,9 +56,16 @@ mixin SimpleCallbacksAccessState<T extends StatefulWidget> on State<T> {
   ImageEditingCompleteCallback? get onImageEditingComplete =>
       callbacks.onImageEditingComplete;
 
+  /// A callback that runs when export completes with full parameters.
+  ///
+  /// Provides access to all transformation, filter, and timing values used
+  /// during the export process.
+  CompleteWidthParametersCallback? get onCompleteWithParameters =>
+      callbacks.onCompleteWithParameters;
+
   /// A callback function that will be called before the image editor will
   /// close.
   ///
   /// <img src="https://github.com/hm21/pro_image_editor/blob/stable/assets/schema_capture_image.jpeg?raw=true" alt="Schema" height="500px" />
-  ImageEditingEmptyCallback? get onCloseEditor => callbacks.onCloseEditor;
+  Function(EditorMode editorMode)? get onCloseEditor => callbacks.onCloseEditor;
 }

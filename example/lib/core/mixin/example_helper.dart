@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:vibration/vibration.dart';
 
-import '/features/preview_img.dart';
+import '../../features/preview/preview_img.dart';
 import '../constants/example_constants.dart';
 export '/shared/widgets/prepare_image_widget.dart';
 
@@ -89,11 +89,14 @@ mixin ExampleHelperState<T extends StatefulWidget> on State<T> {
   /// The [generationConfigs] can be used to pass additional configurations for
   /// generating the image.
   void onCloseEditor({
+    required EditorMode editorMode,
     bool enablePop = true,
     bool showThumbnail = false,
     ui.Image? rawOriginalImage,
     final ImageGenerationConfigs? generationConfigs,
   }) async {
+    if (editorMode != EditorMode.main) return Navigator.pop(context);
+
     if (editedBytes != null) {
       // Pre-cache the edited image to improve display performance.
       await precacheImage(MemoryImage(editedBytes!), context);
