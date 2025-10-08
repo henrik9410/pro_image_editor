@@ -38,6 +38,11 @@ class WidgetLayer extends Layer {
     super.flipX,
     super.flipY,
     super.interaction,
+    this.opacity,
+    this.typeOfLayer,
+    this.bytes,
+    this.mimeType,
+    this.nameImage,
     this.exportConfigs = const WidgetLayerExportConfigs(),
     super.meta,
     super.boxConstraints,
@@ -132,6 +137,17 @@ class WidgetLayer extends Layer {
   /// The widget to display on the layer.
   Widget widget;
 
+  ///for Layer with Image
+  Uint8List? bytes;
+  ///for Layer with Image
+  String? nameImage;
+  ///for Layer with Image
+  String? mimeType;
+
+  /// The opacity of the widget layer.
+  double? opacity;
+  /// The type of the layer.
+  String? typeOfLayer;
   /// Configuration settings for exporting a widget layer.
   ///
   /// This class holds the necessary configurations required for a custom
@@ -163,6 +179,11 @@ class WidgetLayer extends Layer {
       if (recordPosition != null) 'recordPosition': recordPosition,
       if (exportConfigMap.isNotEmpty) 'exportConfigs': exportConfigMap,
       'type': 'widget',
+      'opacity': opacity,
+      'type_of_layer': typeOfLayer,
+      'bytes': bytes,
+      'nameImage': nameImage,
+      'mimeType': mimeType
     };
   }
 
@@ -195,6 +216,11 @@ class WidgetLayer extends Layer {
     String? id,
     bool? flipX,
     bool? flipY,
+    double? opacity,
+    String? typeOfLayer,
+    String? nameImage,
+    String? mimeType,
+    Uint8List? bytes,
     LayerInteraction? interaction,
     Map<String, dynamic>? meta,
     BoxConstraints? boxConstraints,
@@ -208,6 +234,11 @@ class WidgetLayer extends Layer {
       scale: scale ?? this.scale,
       id: id ?? this.id,
       flipX: flipX ?? this.flipX,
+      opacity: opacity ?? this.opacity,
+      typeOfLayer: typeOfLayer ?? this.typeOfLayer,
+      nameImage: nameImage ?? this.nameImage,
+      mimeType: mimeType ?? this.mimeType,
+      bytes: bytes ?? this.bytes,
       flipY: flipY ?? this.flipY,
       interaction: interaction ?? this.interaction,
       exportConfigs: exportConfigs ?? this.exportConfigs,

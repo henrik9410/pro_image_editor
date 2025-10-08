@@ -65,6 +65,22 @@ class StickerEditorState extends State<StickerEditor>
 
   /// Close the editor with the selected widget-layer.
   void setLayer(WidgetLayer widgetLayer) {
-    Navigator.of(context).pop(widgetLayer);
+    Navigator.of(context).pop(widgetLayer.copyWith(
+      typeOfLayer: 'sticker_layer',
+    ));
+  /// Sets the current layer with a sticker and closes the navigation.
+  ///
+  /// [widget] is the widget to be set as the layer.
+  // void setLayer(
+  //   Widget widget, {
+  //   WidgetLayerExportConfigs? exportConfigs,
+  // }) {
+  //   Navigator.of(context).pop(
+  //     WidgetLayer(
+  //       widget: widget,
+  //       typeOfLayer: 'sticker_layer',
+  //       exportConfigs: exportConfigs ?? const WidgetLayerExportConfigs(),
+  //     ),
+  //   );
   }
 }
