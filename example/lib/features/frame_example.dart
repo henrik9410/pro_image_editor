@@ -9,7 +9,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pro_image_editor/core/models/layers/mockup_models.dart';
 import 'package:pro_image_editor/pro_image_editor.dart';
+import 'package:pro_image_editor/shared/services/mockup/mockup_service.dart';
 
 import '/core/mixin/example_helper.dart';
 import '/shared/widgets/material_icon_button.dart';
@@ -72,25 +74,34 @@ class _FrameExampleState extends State<FrameExample>
       Navigator.pop(context);
     }
 
-    editorKey.currentState!.addLayer(
-      WidgetLayer(
-        /// Adjust the offset position to place the image at any desired
-        /// location. Note that a zero offset places the image at the center
-        /// of the editor.
-        offset: Offset.zero,
-        scale: _initScale,
-        widget: Image.memory(
-          bytes,
-          width: 100,
-          height: 100 /
-              Size(
-                decodedImage.width.toDouble(),
-                decodedImage.height.toDouble(),
-              ).aspectRatio,
-          fit: BoxFit.cover,
+    // Demonstration: add picked image into the example frame mockup slot
+    final template = MockupTemplate(
+      size: const Size(600, 400),
+      background: Image.asset(_frameUrl, fit: BoxFit.cover),
+      slots: [
+        MockupSlot(
+          id: 'frame',
+          // Simple centered rectangle - replace with real quad for assets/frame.png
+          quad: const [
+            Offset(150, 40),
+            Offset(450, 40),
+            Offset(450, 360),
+            Offset(150, 360),
+          ],
         ),
-      ),
+      ],
     );
+
+    final layer = MockupService.createMockupLayer(
+      template: template,
+      slotImages: {
+        'frame': MemoryImage(bytes),
+      },
+      offset: Offset.zero,
+      scale: _initScale,
+    );
+
+    editorKey.currentState!.addLayer(layer);
     setState(() {});
   }
 

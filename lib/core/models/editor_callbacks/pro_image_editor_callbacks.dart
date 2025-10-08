@@ -7,6 +7,7 @@ import 'filter_editor_callbacks.dart';
 import 'main_editor/main_editor_callbacks.dart';
 import 'paint_editor_callbacks.dart';
 import 'sticker_editor_callbacks.dart';
+import 'mockup_editor_callbacks.dart';
 import 'text_editor_callbacks.dart';
 import 'tune_editor_callbacks.dart';
 import 'video_editor_callbacks.dart';
@@ -23,6 +24,7 @@ export 'sticker_editor_callbacks.dart';
 export 'text_editor_callbacks.dart';
 export 'tune_editor_callbacks.dart';
 export 'video_editor_callbacks.dart';
+export 'mockup_editor_callbacks.dart';
 
 /// A class representing callbacks for the Image Editor.
 class ProImageEditorCallbacks {
@@ -43,6 +45,7 @@ class ProImageEditorCallbacks {
     this.stickerEditorCallbacks,
     this.tuneEditorCallbacks,
     this.videoEditorCallbacks,
+    this.mockupEditorCallbacks,
   });
 
   /// A callback function that is triggered when the image generation is
@@ -129,6 +132,9 @@ class ProImageEditorCallbacks {
   /// Callbacks from the video editor.
   final VideoEditorCallbacks? videoEditorCallbacks;
 
+  /// Callbacks from the mockup flow.
+  final MockupEditorCallbacks? mockupEditorCallbacks;
+
   /// Creates a copy with modified editor callbacks.
   ProImageEditorCallbacks copyWith({
     Function()? onImageEditingStarted,
@@ -146,6 +152,7 @@ class ProImageEditorCallbacks {
     StickerEditorCallbacks? stickerEditorCallbacks,
     TuneEditorCallbacks? tuneEditorCallbacks,
     VideoEditorCallbacks? videoEditorCallbacks,
+    MockupEditorCallbacks? mockupEditorCallbacks,
   }) {
     return ProImageEditorCallbacks(
       onImageEditingStarted:
@@ -169,6 +176,8 @@ class ProImageEditorCallbacks {
           stickerEditorCallbacks ?? this.stickerEditorCallbacks,
       tuneEditorCallbacks: tuneEditorCallbacks ?? this.tuneEditorCallbacks,
       videoEditorCallbacks: videoEditorCallbacks ?? this.videoEditorCallbacks,
+      mockupEditorCallbacks:
+          mockupEditorCallbacks ?? this.mockupEditorCallbacks,
     );
   }
 }

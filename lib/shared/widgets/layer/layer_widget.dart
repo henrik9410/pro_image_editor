@@ -7,11 +7,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:pro_image_editor/features/paint_editor/widgets/draw_paint_item.dart';
-import 'package:pro_image_editor/plugins/rounded_background_text/src/rounded_background_text.dart';
+// import 'package:pro_image_editor/plugins/rounded_background_text/src/rounded_background_text.dart';
 import 'package:pro_image_editor/shared/styles/platform_text_styles.dart';
 import 'package:pro_image_editor/shared/widgets/censor/blur_area_item.dart';
 import 'package:pro_image_editor/shared/widgets/censor/pixelate_area_item.dart';
 
+import '../../../features/text_editor/widgets/rounded_background_text/rounded_background_text.dart';
 import '/core/constants/editor_various_constants.dart';
 import '/core/mixins/converted_configs.dart';
 import '/core/mixins/editor_configs_mixin.dart';
@@ -493,7 +494,7 @@ class _LayerWidgetState extends State<LayerWidget>
                 color: style.color,
                 fontFamily: style.fontFamily,
               ) ??
-              style,
+              style, maxTextWidth: layer.boxConstraints?.maxWidth??400,
         ),
       ),
     );
@@ -543,10 +544,10 @@ class _LayerWidgetState extends State<LayerWidget>
             isComplex: layer.item.mode == PaintMode.freeStyle,
             painter: DrawPaintItem(
               item: layer.item,
-              scale: widget.layerData.scale,
-              selected: widget.selected,
-              enabledHitDetection: widget.enableHitDetection,
-              freeStyleHighPerformance: widget.highPerformanceMode,
+              scale: widget.layer.scale,
+              // selected: widget.isSelected,
+              // enabledHitDetection: layer.enableHitDetection,
+              // freeStyleHighPerformance: widget.highPerformanceMode,
             ),
           ),
         ),
