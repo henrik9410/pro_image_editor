@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:pro_image_editor/features/paint_editor/widgets/draw_paint_item.dart';
-import 'package:pro_image_editor/plugins/rounded_background_text/src/rounded_background_text.dart';
 import 'package:pro_image_editor/shared/styles/platform_text_styles.dart';
 import 'package:pro_image_editor/shared/widgets/censor/blur_area_item.dart';
 import 'package:pro_image_editor/shared/widgets/censor/pixelate_area_item.dart';
@@ -462,42 +461,42 @@ class _LayerWidgetState extends State<LayerWidget>
   }
 
   /// Build the text widget
-  Widget _buildText() {
-    var fontSize = textEditorConfigs.initFontSize * _layer.scale;
-    var layer = _layer as TextLayer;
-    var style = TextStyle(
-      fontSize: fontSize * layer.fontScale,
-      color: layer.color,
-      overflow: TextOverflow.ellipsis,
-    );
+  // Widget _buildText() {
+  //   var fontSize = textEditorConfigs.initFontSize * _layer.scale;
+  //   var layer = _layer as TextLayer;
+  //   var style = TextStyle(
+  //     fontSize: fontSize * layer.fontScale,
+  //     color: layer.color,
+  //     overflow: TextOverflow.ellipsis,
+  //   );
 
-    double height = getLineHeight(style);
-    const horizontalPaddingFactor = 0.3;
+  //   double height = getLineHeight(style);
+  //   const horizontalPaddingFactor = 0.3;
 
-    return Container(
-      // Fix Hit-Box
-      padding: EdgeInsets.only(
-        left: height * horizontalPaddingFactor,
-        right: height * horizontalPaddingFactor,
-        bottom: height * 0.175 / 2,
-      ),
-      child: HeroMode(
-        enabled: false,
-        child: RoundedBackgroundText(
-          layer.text.toString(),
-          backgroundColor: layer.background,
-          textAlign: layer.align,
-          style: layer.textStyle?.copyWith(
-                fontSize: style.fontSize,
-                fontWeight: style.fontWeight,
-                color: style.color,
-                fontFamily: style.fontFamily,
-              ) ??
-              style,
-        ),
-      ),
-    );
-  }
+  //   return Container(
+  //     // Fix Hit-Box
+  //     padding: EdgeInsets.only(
+  //       left: height * horizontalPaddingFactor,
+  //       right: height * horizontalPaddingFactor,
+  //       bottom: height * 0.175 / 2,
+  //     ),
+  //     child: HeroMode(
+  //       enabled: false,
+  //       child: RoundedBackgroundText(
+  //         layer.text.toString(),
+  //         backgroundColor: layer.background,
+  //         textAlign: layer.align,
+  //         style: layer.textStyle?.copyWith(
+  //               fontSize: style.fontSize,
+  //               fontWeight: style.fontWeight,
+  //               color: style.color,
+  //               fontFamily: style.fontFamily,
+  //             ) ??
+  //             style,
+  //       ),
+  //     ),
+  //   );
+  // }
 
   /// Build the emoji widget
   Widget _buildEmoji() {
@@ -529,30 +528,30 @@ class _LayerWidgetState extends State<LayerWidget>
   }
 
   /// Build the canvas widget
-  Widget _buildCanvas() {
-    var layer = _layer as PaintLayer;
-    return Padding(
-      // Better hit detection for mobile devices
-      padding: EdgeInsets.all(isDesktop ? 0 : 15),
-      child: RepaintBoundary(
-        child: Opacity(
-          opacity: layer.opacity,
-          child: CustomPaint(
-            size: layer.size,
-            willChange: false,
-            isComplex: layer.item.mode == PaintMode.freeStyle,
-            painter: DrawPaintItem(
-              item: layer.item,
-              scale: widget.layerData.scale,
-              selected: widget.selected,
-              enabledHitDetection: widget.enableHitDetection,
-              freeStyleHighPerformance: widget.highPerformanceMode,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // Widget _buildCanvas() {
+  //   var layer = _layer as PaintLayer;
+  //   return Padding(
+  //     // Better hit detection for mobile devices
+  //     padding: EdgeInsets.all(isDesktop ? 0 : 15),
+  //     child: RepaintBoundary(
+  //       child: Opacity(
+  //         opacity: layer.opacity,
+  //         child: CustomPaint(
+  //           size: layer.size,
+  //           willChange: false,
+  //           isComplex: layer.item.mode == PaintMode.freeStyle,
+  //           painter: DrawPaintItem(
+  //             item: layer.item,
+  //             scale: widget.layerData.scale,
+  //             selected: widget.selected,
+  //             enabledHitDetection: widget.enableHitDetection,
+  //             freeStyleHighPerformance: widget.highPerformanceMode,
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildCensorLayer() {
     var layer = _layer as PaintLayer;
