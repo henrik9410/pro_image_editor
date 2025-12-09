@@ -213,6 +213,7 @@ class EmojiEditorState extends State<EmojiEditor>
             () {},
             () {},
             () {},
+            (_) {}
           ),
         );
       }
