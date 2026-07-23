@@ -328,7 +328,7 @@ mixin StandaloneEditorState<
   void initState() {
     super.initState();
     screenshotCtrl = ContentRecorderController(
-      configs: configs.imageGeneration,
+      _configs: configs.imageGeneration,
       isVideoEditor: isVideoEditor,
       ignoreGeneration: !initConfigs.convertToUint8List,
     );

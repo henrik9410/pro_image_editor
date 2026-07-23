@@ -150,7 +150,7 @@ class GroundedMainBarState extends State<GroundedMainBar>
                 child: SizeTransition(
                   sizeFactor: animation,
                   axis: Axis.vertical,
-                  alignment: Alignment.topCenter,
+                  axisAlignment: -1.0,
                   child: child,
                 ),
               );

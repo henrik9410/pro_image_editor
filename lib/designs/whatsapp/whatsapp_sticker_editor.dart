@@ -244,7 +244,7 @@ class _WhatsAppStickerPageState extends State<WhatsAppStickerPage> {
           child: _isStickerEditorEnabled
               ? SizeTransition(
                   sizeFactor: animation,
-                  alignment: Alignment.topCenter,
+                  axisAlignment: -1.0,
                   child: child,
                 )
               : ScaleTransition(

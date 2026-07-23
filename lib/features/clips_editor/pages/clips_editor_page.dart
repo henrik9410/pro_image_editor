@@ -264,7 +264,7 @@ class ClipsEditorPageState extends State<ClipsEditorPage>
             child: ReorderableListView.builder(
               reverse: reversedList,
               padding: clipsEditorConfigs.style.bodyPadding,
-              onReorderItem: (oldIndex, newIndex) {
+              onReorder: (oldIndex, newIndex) {
                 final item = _videoClips.removeAt(oldIndex);
                 _videoClips.insert(newIndex, item);
                 setState(() {});

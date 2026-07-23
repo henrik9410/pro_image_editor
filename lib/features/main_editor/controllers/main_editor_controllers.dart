@@ -24,7 +24,7 @@ class MainEditorControllers {
     uiLayerCtrl = StreamController.broadcast();
     cropLayerPainterCtrl = StreamController.broadcast();
     screenshot = ContentRecorderController(
-      configs: configs.imageGeneration,
+      _configs: configs.imageGeneration,
       isVideoEditor: isVideoEditor,
       enableThumbnailGeneration: callbacks.onThumbnailGenerated != null,
     );

@@ -24,7 +24,7 @@ class ImageConverter {
   ContentRecorderController _buildRecorder(ImageGenerationConfigs configs) =>
       ContentRecorderController(
         isVideoEditor: false,
-        configs: configs.copyWith(
+        _configs: configs.copyWith(
           processorConfigs: configs.processorConfigs.copyWith(
             processorMode: ProcessorMode.minimum,
           ),
@@ -98,7 +98,7 @@ class ImageConverter {
   }) async {
     var recorder = ContentRecorderController(
       isVideoEditor: false,
-      configs: configs.copyWith(
+      _configs: configs.copyWith(
         processorConfigs: configs.processorConfigs.copyWith(
           processorMode: ProcessorMode.minimum,
         ),

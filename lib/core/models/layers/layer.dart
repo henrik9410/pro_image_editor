@@ -587,12 +587,12 @@ class Layer {
   static ContentRecorderController _createPngRecorderController() {
     return ContentRecorderController(
       isVideoEditor: false,
-      configs: const ImageGenerationConfigs(
+      _configs: const ImageGenerationConfigs(
         outputFormat: OutputFormat.png,
         processorConfigs: ProcessorConfigs(
           processorMode: ProcessorMode.minimum,
         ),
-      ),
+      ), 
     );
   }
 

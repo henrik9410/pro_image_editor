@@ -3253,7 +3253,7 @@ class ProImageEditorState extends State<ProImageEditor>
                               transitionBuilder: (child, animation) {
                                 return SizeTransition(
                                   sizeFactor: animation,
-                                  alignment: Alignment.topCenter,
+                                  axisAlignment: -1.0,
                                   child: child,
                                 );
                               },
@@ -3298,7 +3298,7 @@ class ProImageEditorState extends State<ProImageEditor>
                                   onGenerateRoute: (settings) =>
                                       PageRouteBuilder(
                                         opaque: false,
-                                        pageBuilder: (context, _, _) =>
+                                        pageBuilder: (context, _, child) =>
                                             const SizedBox.shrink(),
                                       ),
                                 ),
