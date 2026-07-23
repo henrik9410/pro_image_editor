@@ -1,11 +1,12 @@
-// Flutter imports:
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 // Project imports:
 import '../custom_widgets/text_editor_widgets.dart';
 import '../icons/text_editor_icons.dart';
 import '../layers/enums/layer_background_mode.dart';
 import '../styles/text_editor_style.dart';
+import 'utils/base_editor_layer_configs.dart';
+import 'utils/base_sub_editor_configs.dart';
 import 'utils/editor_safe_area.dart';
 
 export '../custom_widgets/text_editor_widgets.dart';
@@ -27,22 +28,31 @@ export '../styles/text_editor_style.dart';
 ///   initFontSize: 24.0,
 /// );
 /// ```
-class TextEditorConfigs {
+class TextEditorConfigs
+    implements BaseEditorLayerConfigs, BaseSubEditorConfigs {
   /// Creates an instance of TextEditorConfigs with optional settings.
   ///
   /// By default, the text editor is enabled, and most text formatting options
   /// are enabled. The initial font size is set to 24.0.
   const TextEditorConfigs({
+    this.layerFractionalOffset = const Offset(-0.5, -0.5),
+    this.enableGesturePop = true,
     this.enableSuggestions = true,
-    this.enabled = true,
+    this.enableEdit = true,
     this.enableAutocorrect = true,
     this.showSelectFontStyleBottomBar = false,
     this.showTextAlignButton = true,
     this.showFontScaleButton = true,
     this.showBackgroundModeButton = true,
     this.enableMainEditorZoomFactor = false,
+    this.enableTapOutsideToSave = true,
+    this.enableAutoOverflow = true,
+    this.enableAutoWrapOnLayer = true,
     this.initFontSize = 24.0,
+    this.initialPrimaryColor = const Color(0xFF000000),
+    this.initialSecondaryColor,
     this.initialTextAlign = TextAlign.center,
+    this.inputTextFieldAlign = Alignment.center,
     this.initFontScale = 1.0,
     this.maxFontScale = 3.0,
     this.minFontScale = 0.3,
@@ -55,12 +65,26 @@ class TextEditorConfigs {
     this.style = const TextEditorStyle(),
     this.icons = const TextEditorIcons(),
     this.widgets = const TextEditorWidgets(),
-  })  : assert(initFontSize > 0, 'initFontSize must be positive'),
-        assert(maxScale >= minScale,
-            'maxScale must be greater than or equal to minScale');
+    this.enableImageBoundaryTextWrap = false,
+    this.resizeToAvoidBottomInset = true,
+    this.composingTextDecoration = TextDecoration.none,
+    this.spellCheckConfiguration,
+  }) : assert(initFontSize > 0, 'initFontSize must be positive'),
+       assert(
+         maxScale >= minScale,
+         'maxScale must be greater than or equal to minScale',
+       );
 
-  /// Indicates whether the text editor is enabled.
-  final bool enabled;
+  /// {@macro layerFractionalOffset}
+  @override
+  final Offset layerFractionalOffset;
+
+  /// {@macro enableGesturePop}
+  @override
+  final bool enableGesturePop;
+
+  /// Indicating whether created layers can be edited.
+  final bool enableEdit;
 
   /// Whether to show the toggle button to change the text align.
   final bool showTextAlignButton;
@@ -79,11 +103,26 @@ class TextEditorConfigs {
   /// editor's zoom level.
   final bool enableMainEditorZoomFactor;
 
+  /// Whether tapping outside the text field saves the text annotation.
+  ///
+  /// When `true` (default), tapping outside the text input area will save
+  /// the current text and close the editor. When `false`, tapping outside
+  /// will not trigger the save action, requiring users to use the done
+  /// button or other explicit save actions.
+  final bool enableTapOutsideToSave;
+
   /// The initial font size for text.
   final double initFontSize;
 
   /// The initial text alignment for the layer.
   final TextAlign initialTextAlign;
+
+  /// The alignment of the input text field within the editor.
+  ///
+  /// Determines how the text field is positioned relative to its parent widget.
+  /// For example, [Alignment.center] will center the text field, while
+  /// [Alignment.topLeft] will align it to the top-left corner.
+  final Alignment inputTextFieldAlign;
 
   /// The initial font scale for text.
   final double initFontScale;
@@ -93,6 +132,12 @@ class TextEditorConfigs {
 
   /// The min font font scale for text.
   final double minFontScale;
+
+  /// The initial primary color which is mostly the font color.
+  final Color initialPrimaryColor;
+
+  /// The initial secondary color which is mostly the background color.
+  final Color? initialSecondaryColor;
 
   /// The initial background color mode for the layer.
   final LayerBackgroundMode initialBackgroundColorMode;
@@ -104,6 +149,25 @@ class TextEditorConfigs {
   ///
   /// This style will be applied to the text if no other style is specified.
   final TextStyle defaultTextStyle;
+
+  /// Whether the text should automatically wrap when it reaches the end of
+  /// the screen.
+  ///
+  /// If set to `true`, the text will wrap to the next line instead of
+  /// overflowing, ensuring it stays within the visible area
+  /// (e.g., the screen width).
+  final bool enableAutoOverflow;
+
+  /// Whether the text should automatically wrap when it reaches the end of
+  /// the screen on the final image.
+  ///
+  /// If set to `true`, the text will wrap to the next line instead of
+  /// overflowing, ensuring it stays within the visible area
+  /// (e.g., the screen width).
+  ///
+  /// If set to `false`, the text will only wrap if the user deliberately
+  /// entered a new line while editing.
+  final bool enableAutoWrapOnLayer;
 
   /// The minimum scale factor from the layer.
   final double minScale;
@@ -138,6 +202,30 @@ class TextEditorConfigs {
   /// Widgets associated with the text editor.
   final TextEditorWidgets widgets;
 
+  /// Enable automatic text wrapping when text reach the image boundaries
+  final bool enableImageBoundaryTextWrap;
+
+  /// Whether the Scaffold should resize to avoid the bottom inset (keyboard).
+  ///
+  /// When `true` (default), the editor will resize when the keyboard appears.
+  /// When `false`, the editor will not resize and the keyboard may overlap
+  /// the content.
+  final bool resizeToAvoidBottomInset;
+
+  /// The text decoration applied to the composing region while the user is
+  /// typing with IME/suggestions active.
+  ///
+  /// By default this is [TextDecoration.none] so no underline is shown.
+  /// Set to [TextDecoration.underline] to restore the default Flutter
+  /// behavior.
+  final TextDecoration composingTextDecoration;
+
+  /// The spell check configuration for the text input field.
+  ///
+  /// When provided, enables spell checking with the given configuration.
+  /// When `null`, spell checking is disabled.
+  final SpellCheckConfiguration? spellCheckConfiguration;
+
   /// Creates a copy of this `TextEditorConfigs` object with the given fields
   /// replaced with new values.
   ///
@@ -145,11 +233,19 @@ class TextEditorConfigs {
   /// [TextEditorConfigs] with some properties updated while keeping the
   /// others unchanged.
   TextEditorConfigs copyWith({
-    bool? enabled,
+    Offset? layerFractionalOffset,
+    bool? enableGesturePop,
+    bool? enableEdit,
     bool? showSelectFontStyleBottomBar,
     bool? enableMainEditorZoomFactor,
+    bool? enableTapOutsideToSave,
+    bool? enableAutoOverflow,
+    bool? enableAutoWrapOnLayer,
+    Color? initialPrimaryColor,
+    Color? initialSecondaryColor,
     double? initFontSize,
     TextAlign? initialTextAlign,
+    Alignment? inputTextFieldAlign,
     double? initFontScale,
     double? maxFontScale,
     double? minFontScale,
@@ -164,16 +260,35 @@ class TextEditorConfigs {
     TextEditorStyle? style,
     TextEditorIcons? icons,
     TextEditorWidgets? widgets,
+    bool? enableImageBoundaryTextWrap,
+    bool? showBackgroundModeButton,
+    bool? showFontScaleButton,
+    bool? showTextAlignButton,
+    bool? resizeToAvoidBottomInset,
+    TextDecoration? composingTextDecoration,
+    SpellCheckConfiguration? spellCheckConfiguration,
   }) {
     return TextEditorConfigs(
+      layerFractionalOffset:
+          layerFractionalOffset ?? this.layerFractionalOffset,
+      enableGesturePop: enableGesturePop ?? this.enableGesturePop,
       safeArea: safeArea ?? this.safeArea,
-      enabled: enabled ?? this.enabled,
+      enableEdit: enableEdit ?? this.enableEdit,
       showSelectFontStyleBottomBar:
           showSelectFontStyleBottomBar ?? this.showSelectFontStyleBottomBar,
       enableMainEditorZoomFactor:
           enableMainEditorZoomFactor ?? this.enableMainEditorZoomFactor,
+      enableTapOutsideToSave:
+          enableTapOutsideToSave ?? this.enableTapOutsideToSave,
+      enableAutoOverflow: enableAutoOverflow ?? this.enableAutoOverflow,
+      enableAutoWrapOnLayer:
+          enableAutoWrapOnLayer ?? this.enableAutoWrapOnLayer,
+      initialPrimaryColor: initialPrimaryColor ?? this.initialPrimaryColor,
+      initialSecondaryColor:
+          initialSecondaryColor ?? this.initialSecondaryColor,
       initFontSize: initFontSize ?? this.initFontSize,
       initialTextAlign: initialTextAlign ?? this.initialTextAlign,
+      inputTextFieldAlign: inputTextFieldAlign ?? this.inputTextFieldAlign,
       initFontScale: initFontScale ?? this.initFontScale,
       maxFontScale: maxFontScale ?? this.maxFontScale,
       minFontScale: minFontScale ?? this.minFontScale,
@@ -188,6 +303,18 @@ class TextEditorConfigs {
       style: style ?? this.style,
       icons: icons ?? this.icons,
       widgets: widgets ?? this.widgets,
+      enableImageBoundaryTextWrap:
+          enableImageBoundaryTextWrap ?? this.enableImageBoundaryTextWrap,
+      showBackgroundModeButton:
+          showBackgroundModeButton ?? this.showBackgroundModeButton,
+      showFontScaleButton: showFontScaleButton ?? this.showFontScaleButton,
+      showTextAlignButton: showTextAlignButton ?? this.showTextAlignButton,
+      resizeToAvoidBottomInset:
+          resizeToAvoidBottomInset ?? this.resizeToAvoidBottomInset,
+      composingTextDecoration:
+          composingTextDecoration ?? this.composingTextDecoration,
+      spellCheckConfiguration:
+          spellCheckConfiguration ?? this.spellCheckConfiguration,
     );
   }
 }

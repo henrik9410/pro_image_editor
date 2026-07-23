@@ -10,7 +10,7 @@ import 'color.dart';
 import 'format.dart';
 
 /// A 8-bit integer color.
-class ColorInt8 extends Iterable<num> implements Color {
+class ColorInt8 extends Color {
   ColorInt8(int numChannels) : data = Int8List(numChannels);
 
   ColorInt8.from(ColorInt8 other) : data = Int8List.fromList(other.data);
@@ -126,8 +126,8 @@ class ColorInt8 extends Iterable<num> implements Color {
   num getChannel(Channel channel) => channel == Channel.luminance
       ? luminance
       : channel.index < data.length
-          ? data[channel.index]
-          : 0;
+      ? data[channel.index]
+      : 0;
 
   @override
   num getChannelNormalized(Channel channel) =>
@@ -179,7 +179,10 @@ class ColorInt8 extends Iterable<num> implements Color {
   int get hashCode => Object.hashAll(toList());
 
   @override
-  Color convert({Format? format, int? numChannels, num? alpha}) =>
-      convertColor(this,
-          format: format, numChannels: numChannels, alpha: alpha);
+  Color convert({Format? format, int? numChannels, num? alpha}) => convertColor(
+    this,
+    format: format,
+    numChannels: numChannels,
+    alpha: alpha,
+  );
 }

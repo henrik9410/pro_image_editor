@@ -9,15 +9,13 @@ import '/core/mixins/converted_callbacks.dart';
 import '/core/mixins/converted_configs.dart';
 import '/core/mixins/standalone_editor.dart';
 import '/core/models/transform_helper.dart';
-import '/core/platform/io/io_helper.dart';
+import '/core/utils/size_utils.dart';
 import '/features/tune_editor/widgets/tune_editor_bottombar.dart';
 import '/pro_image_editor.dart';
 import '/shared/services/content_recorder/widgets/content_recorder.dart';
 import '/shared/utils/file_constructor_utils.dart';
 import '/shared/widgets/layer/layer_stack.dart';
 import '/shared/widgets/transform/transformed_content_generator.dart';
-import '../filter_editor/widgets/filtered_image.dart';
-import 'models/tune_adjustment_matrix.dart';
 import 'utils/tune_presets.dart';
 import 'widgets/tune_editor_appbar.dart';
 
@@ -43,9 +41,13 @@ class TuneEditor extends StatefulWidget
   /// for the editor.
   const TuneEditor._({
     super.key,
-    required this.editorImage,
     required this.initConfigs,
-  });
+    this.editorImage,
+    this.videoController,
+  }) : assert(
+         editorImage != null || videoController != null,
+         'Either editorImage or videoController must be provided.',
+       );
 
   /// Constructs a `TuneEditor` widget with image data loaded from memory.
   factory TuneEditor.memory(
@@ -62,7 +64,7 @@ class TuneEditor extends StatefulWidget
 
   /// Constructs a `TuneEditor` widget with an image loaded from a file.
   factory TuneEditor.file(
-    File file, {
+    dynamic file, {
     Key? key,
     required TuneEditorInitConfigs initConfigs,
   }) {
@@ -107,46 +109,48 @@ class TuneEditor extends StatefulWidget
   factory TuneEditor.autoSource({
     Key? key,
     Uint8List? byteArray,
-    File? file,
+    dynamic file,
     String? assetPath,
     String? networkUrl,
     EditorImage? editorImage,
+    ProVideoController? videoController,
     required TuneEditorInitConfigs initConfigs,
   }) {
-    if (byteArray != null || editorImage?.byteArray != null) {
-      return TuneEditor.memory(
-        byteArray ?? editorImage!.byteArray!,
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else if (file != null || editorImage?.file != null) {
-      return TuneEditor.file(
-        ensureFileInstance(file ?? editorImage!.file!),
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else if (networkUrl != null || editorImage?.networkUrl != null) {
-      return TuneEditor.network(
-        networkUrl ?? editorImage!.networkUrl!,
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else if (assetPath != null || editorImage?.assetPath != null) {
-      return TuneEditor.asset(
-        assetPath ?? editorImage!.assetPath!,
-        key: key,
-        initConfigs: initConfigs,
-      );
-    } else {
-      throw ArgumentError(
-          "Either 'byteArray', 'file', 'networkUrl' or 'assetPath' must "
-          'be provided.');
-    }
+    return TuneEditor._(
+      key: key,
+      editorImage: videoController != null
+          ? null
+          : editorImage ??
+                EditorImage(
+                  byteArray: byteArray,
+                  file: file,
+                  networkUrl: networkUrl,
+                  assetPath: assetPath,
+                ),
+      videoController: videoController,
+      initConfigs: initConfigs,
+    );
   }
+
+  /// Constructs a `TuneEditor` widget with an video player.
+  factory TuneEditor.video(
+    ProVideoController videoController, {
+    Key? key,
+    required TuneEditorInitConfigs initConfigs,
+  }) {
+    return TuneEditor._(
+      key: key,
+      videoController: videoController,
+      initConfigs: initConfigs,
+    );
+  }
+
   @override
   final TuneEditorInitConfigs initConfigs;
   @override
-  final EditorImage editorImage;
+  final EditorImage? editorImage;
+  @override
+  final ProVideoController? videoController;
 
   @override
   createState() => TuneEditorState();
@@ -205,25 +209,25 @@ class TuneEditorState extends State<TuneEditor>
   bool get canRedo => _redoStack.isNotEmpty;
 
   @override
+  TuneEditorCallbacks? get standaloneEditorCallbacks => tuneEditorCallbacks;
+
+  @override
   void initState() {
     super.initState();
     uiStream = StreamController.broadcast();
     uiStream.stream.listen((_) => rebuildController.add(null));
 
-    var items = tuneEditorConfigs.tuneAdjustmentOptions ??
-        tunePresets(
-          icons: tuneEditorConfigs.icons,
-          i18n: i18n.tuneEditor,
-        );
+    var items =
+        tuneEditorConfigs.tuneAdjustmentOptions ??
+        tunePresets(icons: tuneEditorConfigs.icons, i18n: i18n.tuneEditor);
     tuneAdjustmentList = items.map((item) {
       return item.copyWith(
         value: tuneAdjustmentMatrix
-            .firstWhere((el) => el.id == item.id,
-                orElse: () => TuneAdjustmentMatrix(
-                      id: 'id',
-                      value: 0,
-                      matrix: [],
-                    ))
+            .firstWhere(
+              (el) => el.id == item.id,
+              orElse: () =>
+                  TuneAdjustmentMatrix(id: 'id', value: 0, matrix: []),
+            )
             .value,
       );
     }).toList();
@@ -260,6 +264,12 @@ class TuneEditorState extends State<TuneEditor>
     doneEditing(
       editorImage: editorImage,
       returnValue: tuneAdjustmentMatrix,
+      blur: appliedBlurFactor,
+      matrixFilterList: appliedFilters,
+      matrixTuneAdjustmentsList: tuneAdjustmentMatrix
+          .map((item) => item.matrix)
+          .toList(),
+      transform: initialTransformConfigs,
     );
     tuneEditorCallbacks?.handleDone();
   }
@@ -325,8 +335,9 @@ class TuneEditorState extends State<TuneEditor>
   void onChanged(double value) {
     var selectedItem = tuneAdjustmentList[selectedIndex];
 
-    int index =
-        tuneAdjustmentMatrix.indexWhere((item) => item.id == selectedItem.id);
+    int index = tuneAdjustmentMatrix.indexWhere(
+      (item) => item.id == selectedItem.id,
+    );
 
     var item = TuneAdjustmentMatrix(
       id: selectedItem.id,
@@ -349,9 +360,7 @@ class TuneEditorState extends State<TuneEditor>
   /// Saves the current state to the undo stack before making changes.
   void onChangedStart(double value) {
     // Save current state to undo stack before making changes
-    _undoStack.add(
-      tuneAdjustmentMatrix.map((e) => e.copy()).toList(),
-    );
+    _undoStack.add(tuneAdjustmentMatrix.map((e) => e.copy()).toList());
     // Clear redo stack because a new change is made
     _redoStack.clear();
   }
@@ -370,8 +379,10 @@ class TuneEditorState extends State<TuneEditor>
   Widget build(BuildContext context) {
     return Theme(
       data: theme.copyWith(
-          tooltipTheme: theme.tooltipTheme.copyWith(preferBelow: true)),
+        tooltipTheme: theme.tooltipTheme.copyWith(preferBelow: true),
+      ),
       child: ExtendedPopScope(
+        canPop: tuneEditorConfigs.enableGesturePop,
         child: AnnotatedRegion<SystemUiOverlayStyle>(
           value: tuneEditorConfigs.style.uiOverlayStyle,
           child: SafeArea(
@@ -381,11 +392,15 @@ class TuneEditorState extends State<TuneEditor>
             right: tuneEditorConfigs.safeArea.right,
             child: RecordInvisibleWidget(
               controller: screenshotCtrl,
-              child: Scaffold(
-                backgroundColor: tuneEditorConfigs.style.background,
-                appBar: _buildAppBar(),
-                body: _buildBody(),
-                bottomNavigationBar: _buildBottomNavBar(),
+              child: MediaQuery.removePadding(
+                context: context,
+                removeBottom: !tuneEditorConfigs.safeArea.bottom,
+                child: Scaffold(
+                  backgroundColor: tuneEditorConfigs.style.background,
+                  appBar: _buildAppBar(),
+                  body: _buildBody(),
+                  bottomNavigationBar: _buildBottomNavBar(),
+                ),
               ),
             ),
           ),
@@ -397,8 +412,10 @@ class TuneEditorState extends State<TuneEditor>
   /// Builds the app bar for the tune editor.
   PreferredSizeWidget? _buildAppBar() {
     if (tuneEditorConfigs.widgets.appBar != null) {
-      return tuneEditorConfigs.widgets.appBar!
-          .call(this, rebuildController.stream);
+      return tuneEditorConfigs.widgets.appBar!.call(
+        this,
+        rebuildController.stream,
+      );
     }
     return TuneEditorAppbar(
       tuneEditorConfigs: tuneEditorConfigs,
@@ -414,55 +431,71 @@ class TuneEditorState extends State<TuneEditor>
 
   /// Builds the main content area of the editor.
   Widget _buildBody() {
-    return LayoutBuilder(builder: (context, constraints) {
-      editorBodySize = constraints.biggest;
-      return Stack(
-        alignment: Alignment.center,
-        fit: StackFit.expand,
-        children: [
-          ContentRecorder(
-            controller: screenshotCtrl,
-            child: Stack(
-              alignment: Alignment.center,
-              fit: StackFit.expand,
-              children: [
-                _buildBackgroundImage(),
-                if (tuneEditorConfigs.showLayers && layers != null)
-                  _buildLayers(),
-                if (tuneEditorConfigs.widgets.bodyItemsRecorded != null)
-                  ...tuneEditorConfigs.widgets.bodyItemsRecorded!(
-                      this, rebuildController.stream),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        editorBodySize = constraints.biggest;
+        return Stack(
+          alignment: Alignment.center,
+          fit: StackFit.expand,
+          children: [
+            if (initConfigs.convertToUint8List && isVideoEditor)
+              _buildBackground(),
+            ContentRecorder(
+              controller: screenshotCtrl,
+              child: Stack(
+                alignment: Alignment.center,
+                fit: StackFit.expand,
+                children: [
+                  if (!initConfigs.convertToUint8List || !isVideoEditor)
+                    _buildBackground(),
+                  if (tuneEditorConfigs.showLayers && layers != null)
+                    _buildLayers(),
+                  if (tuneEditorConfigs.widgets.bodyItemsRecorded != null)
+                    ...tuneEditorConfigs.widgets.bodyItemsRecorded!(
+                      this,
+                      rebuildController.stream,
+                    ),
+                ],
+              ),
             ),
-          ),
-          if (tuneEditorConfigs.widgets.bodyItems != null)
-            ...tuneEditorConfigs.widgets.bodyItems!(
-                this, rebuildController.stream),
-        ],
-      );
-    });
+            if (tuneEditorConfigs.widgets.bodyItems != null)
+              ...tuneEditorConfigs.widgets.bodyItems!(
+                this,
+                rebuildController.stream,
+              ),
+          ],
+        );
+      },
+    );
   }
 
-  Widget _buildBackgroundImage() {
+  Widget _buildBackground() {
     return Hero(
       tag: heroTag,
       createRectTween: (begin, end) => RectTween(begin: begin, end: end),
       child: TransformedContentGenerator(
+        isVideoPlayer: videoController != null,
         configs: configs,
         transformConfigs: initialTransformConfigs ?? TransformConfigs.empty(),
         child: StreamBuilder(
-            stream: uiStream.stream,
-            builder: (context, snapshot) {
-              return FilteredImage(
-                width: getMinimumSize(mainImageSize, editorBodySize).width,
-                height: getMinimumSize(mainImageSize, editorBodySize).height,
-                configs: configs,
-                image: editorImage,
-                filters: appliedFilters,
-                tuneAdjustments: tuneAdjustmentMatrix,
-                blurFactor: appliedBlurFactor,
-              );
-            }),
+          stream: uiStream.stream,
+          builder: (context, snapshot) {
+            return FilteredWidget(
+              width: getValidSizeOrDefault(mainImageSize, editorBodySize).width,
+              height: getValidSizeOrDefault(
+                mainImageSize,
+                editorBodySize,
+              ).height,
+              configs: configs,
+              image: editorImage,
+              videoPlayer: videoController?.videoPlayer,
+              blankSize: initConfigs.mainImageSize,
+              filters: appliedFilters,
+              tuneAdjustments: tuneAdjustmentMatrix,
+              blurFactor: appliedBlurFactor,
+            );
+          },
+        ),
       ),
     );
   }
@@ -470,8 +503,8 @@ class TuneEditorState extends State<TuneEditor>
   Widget _buildLayers() {
     return LayerStack(
       transformHelper: TransformHelper(
-        mainBodySize: getMinimumSize(mainBodySize, editorBodySize),
-        mainImageSize: getMinimumSize(mainImageSize, editorBodySize),
+        mainBodySize: getValidSizeOrDefault(mainBodySize, editorBodySize),
+        mainImageSize: getValidSizeOrDefault(mainImageSize, editorBodySize),
         editorBodySize: editorBodySize,
         transformConfigs: initialTransformConfigs,
       ),
@@ -485,8 +518,10 @@ class TuneEditorState extends State<TuneEditor>
   /// Builds the bottom navigation bar with tune options.
   Widget? _buildBottomNavBar() {
     if (tuneEditorConfigs.widgets.bottomBar != null) {
-      return tuneEditorConfigs.widgets.bottomBar!
-          .call(this, rebuildController.stream);
+      return tuneEditorConfigs.widgets.bottomBar!.call(
+        this,
+        rebuildController.stream,
+      );
     }
 
     return TuneEditorBottombar(
@@ -506,5 +541,55 @@ class TuneEditorState extends State<TuneEditor>
       },
       selectedIndex: selectedIndex,
     );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties
+      ..add(
+        DiagnosticsProperty<TuneEditorInitConfigs>(
+          'initConfigs',
+          widget.initConfigs,
+        ),
+      )
+      ..add(
+        DiagnosticsProperty<EditorImage?>('editorImage', widget.editorImage),
+      )
+      ..add(
+        DiagnosticsProperty<ProVideoController?>(
+          'videoController',
+          widget.videoController,
+        ),
+      )
+      ..add(IntProperty('selectedIndex', selectedIndex))
+      ..add(
+        IterableProperty<TuneAdjustmentItem>(
+          'tuneAdjustmentList',
+          tuneAdjustmentList,
+        ),
+      )
+      ..add(
+        IterableProperty<TuneAdjustmentMatrix>(
+          'tuneAdjustmentMatrix',
+          tuneAdjustmentMatrix,
+        ),
+      )
+      ..add(
+        FlagProperty(
+          'canUndo',
+          value: canUndo,
+          ifTrue: 'can undo',
+          ifFalse: 'cannot undo',
+        ),
+      )
+      ..add(
+        FlagProperty(
+          'canRedo',
+          value: canRedo,
+          ifTrue: 'can redo',
+          ifFalse: 'cannot redo',
+        ),
+      );
   }
 }

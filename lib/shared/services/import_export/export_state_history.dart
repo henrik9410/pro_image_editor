@@ -10,9 +10,11 @@ import '/core/models/editor_configs/pro_image_editor_configs.dart';
 import '/core/models/history/state_history.dart';
 import '/core/models/layers/layer.dart';
 import '/core/platform/io/io_helper.dart';
-import '/features/filter_editor/types/filter_matrix.dart';
+import '/features/filter_editor/types/filter_state.dart';
 import '/features/tune_editor/models/tune_adjustment_matrix.dart';
-import '../../utils/decode_image.dart';
+import '/shared/extensions/export_string_extension.dart';
+import '/shared/extensions/num_extension.dart';
+import '/shared/utils/decode_image.dart';
 import '../content_recorder/controllers/content_recorder_controller.dart';
 import 'constants/export_import_version.dart';
 import 'enums/export_import_enum.dart';
@@ -25,52 +27,41 @@ import 'utils/key_minifier.dart';
 /// including layers, filters, widgets, and other configurations.
 class ExportStateHistory {
   /// Constructs an [ExportStateHistory] object with the given parameters.
-  ///
-  /// The [stateHistory], [_imgStateHistory], [imgSize], and [editorPosition]
-  /// parameters are required, while the [configs] parameter is optional and
-  /// defaults to [ExportEditorConfigs()].
   ExportStateHistory({
-    required this.editorConfigs,
-    required this.stateHistory,
-    required this.imageInfos,
-    required this.imgSize,
-    required this.editorPosition,
-    required this.contentRecorderCtrl,
-    required this.context,
-    ExportEditorConfigs configs = const ExportEditorConfigs(),
-  }) : _configs = configs;
+    required this._editorConfigs,
+    required this._stateHistory,
+    required this._imageInfos,
+    required this._editorPosition,
+    required this._contentRecorderCtrl,
+    required this._context,
+    this._configs = const ExportEditorConfigs(),
+  });
 
   /// The current position of the editor in the state history.
   ///
   /// This integer value represents the index of the editor's current state
   /// within the history, allowing for tracking and management of undo/redo
   /// actions.
-  final int editorPosition;
-
-  /// The size of the image in the editor.
-  ///
-  /// This [Size] object specifies the dimensions of the image being edited,
-  /// providing a reference for transformations and layout adjustments.
-  final Size imgSize;
+  final int _editorPosition;
 
   /// The list of editor state history entries.
   ///
   /// This list contains [EditorStateHistory] objects representing each
   /// state of the editor, enabling navigation through different editing stages.
-  final List<EditorStateHistory> stateHistory;
+  final List<EditorStateHistory> _stateHistory;
 
   /// The controller for recording content changes.
   ///
   /// This [ContentRecorderController] is used to manage the recording and
   /// playback of content changes within the editor, allowing for precise
   /// capture of editing actions.
-  late ContentRecorderController contentRecorderCtrl;
+  late final ContentRecorderController _contentRecorderCtrl;
 
   /// The configuration settings for the image editor.
   ///
   /// This [ProImageEditorConfigs] object contains various configuration
   /// settings for the editor, influencing its behavior and appearance.
-  final ProImageEditorConfigs editorConfigs;
+  final ProImageEditorConfigs _editorConfigs;
 
   /// The configuration settings for exporting the editor state.
   ///
@@ -82,13 +73,13 @@ class ExportStateHistory {
   ///
   /// This [ImageInfos] object provides detailed information about the image,
   /// including metadata and transformation data.
-  final ImageInfos imageInfos;
+  final ImageInfos _imageInfos;
 
   /// The build context of the editor.
   ///
   /// This [BuildContext] is used for widget building and accessing theme
   /// data within the editor, providing a connection to the widget tree.
-  final BuildContext context;
+  final BuildContext _context;
 
   /// Converts the state history to a JSON string.
   ///
@@ -135,19 +126,20 @@ class ExportStateHistory {
     );
     List<Map<String, dynamic>> history = [];
     List<Uint8List> widgetRecords = [];
-    List<EditorStateHistory> changes = List.from(stateHistory);
+    List<EditorStateHistory> changes = List.from(_stateHistory);
 
     if (changes.isNotEmpty) changes.removeAt(0);
 
     /// Helper function to collect history states up to a given position.
     EditorStateHistory accumulateHistory(int position) {
-      FilterMatrix filters = [];
+      List<FilterState> filters = [];
       List<TuneAdjustmentMatrix> tuneAdjustments = [];
       double? blur;
       TransformConfigs? transformConfigs;
+      Map<String, dynamic> meta = const {};
 
       for (var item in changes.getRange(0, position)) {
-        if (item.filters.isNotEmpty) filters.addAll(item.filters);
+        if (item.filters.isNotEmpty) filters = item.filters;
         if (item.blur != null) blur = item.blur;
         if (item.tuneAdjustments.isNotEmpty) {
           tuneAdjustments = item.tuneAdjustments;
@@ -155,6 +147,7 @@ class ExportStateHistory {
         if (item.transformConfigs != null) {
           transformConfigs = item.transformConfigs;
         }
+        if (item.meta.isNotEmpty) meta = item.meta;
       }
 
       return EditorStateHistory(
@@ -163,19 +156,20 @@ class ExportStateHistory {
         layers: position <= 0 ? [] : changes[position - 1].layers,
         transformConfigs: transformConfigs,
         tuneAdjustments: tuneAdjustments,
+        meta: meta,
       );
     }
 
     /// Choose history span
     switch (_configs.historySpan) {
       case ExportHistorySpan.current:
-        changes = [accumulateHistory(editorPosition)];
+        changes = [accumulateHistory(_editorPosition)];
         break;
       case ExportHistorySpan.currentAndBackward:
-        changes.removeRange(editorPosition, changes.length);
+        changes.removeRange(_editorPosition, changes.length);
         break;
       case ExportHistorySpan.currentAndForward:
-        int position = editorPosition;
+        int position = _editorPosition;
 
         if (position != 0) {
           var history = accumulateHistory(position);
@@ -190,12 +184,15 @@ class ExportStateHistory {
     Map<String, dynamic> references = {};
     Map<String, dynamic> lastLayerStateHelper = {};
 
+    final int maxDecimalPlaces = _configs.maxDecimalPlaces;
+    final bool enableMinify = _configs.enableMinify;
+
     /// Build Layers and filters
     for (EditorStateHistory element in changes) {
       List<Map<String, dynamic>> layers = await _convertLayers(
         element: element,
         widgetRecords: widgetRecords,
-        imageInfos: imageInfos,
+        imageInfos: _imageInfos,
         layerReferences: references,
         lastLayerStateHelper: lastLayerStateHelper,
       );
@@ -203,7 +200,11 @@ class ExportStateHistory {
       layers = minifier.convertListOfLayerKeys(layers);
 
       Map<String, dynamic> transformConfigsMap =
-          element.transformConfigs?.toMap() ?? {};
+          element.transformConfigs?.toMap(
+            maxDecimalPlaces: maxDecimalPlaces,
+            enableMinify: enableMinify,
+          ) ??
+          {};
 
       bool enableTuneExport =
           _configs.exportTuneAdjustments && element.tuneAdjustments.isNotEmpty;
@@ -214,17 +215,21 @@ class ExportStateHistory {
           _configs.exportCropRotate && transformConfigsMap.isNotEmpty;
 
       history.add({
-        if (layers.isNotEmpty) minifier.convertHistoryKey('layers'): layers,
+        if (layers.isNotEmpty) 'layers'.toHistoryKey(minifier): layers,
         if (enableFilterExport)
-          minifier.convertHistoryKey('filters'): element.filters,
-        if (enableTuneExport)
-          minifier.convertHistoryKey('tune'): element.tuneAdjustments
-              .where((item) => item.value != 0.0)
-              .map((item) => item.toMap())
+          'filters'.toHistoryKey(minifier): element.filters
+              .map((f) => f.toMap())
               .toList(),
-        if (enableBlurExport) minifier.convertHistoryKey('blur'): element.blur,
+        if (enableTuneExport)
+          'tune'.toHistoryKey(minifier): element.tuneAdjustments
+              .where((item) => item.value != 0.0)
+              .map((item) => item.toMap(maxDecimalPlaces: maxDecimalPlaces))
+              .toList(),
+        if (enableBlurExport) 'blur'.toHistoryKey(minifier): element.blur,
         if (enableCropRotateExport)
-          minifier.convertHistoryKey('transform'): transformConfigsMap,
+          'transform'.toHistoryKey(minifier): transformConfigsMap,
+        if (element.meta.isNotEmpty)
+          'meta'.toHistoryKey(minifier): element.meta,
       });
     }
     references = minifier.convertReferenceKeys(references);
@@ -234,26 +239,30 @@ class ExportStateHistory {
     history = convertedLayer.history;
 
     return {
-      minifier.convertMainKey('version'): ExportImportVersion.version_6_0_0,
-      if (_configs.enableMinify) minifier.convertMainKey('minify'): true,
-      minifier.convertMainKey('position'):
+      'version'.toMainKey(minifier): ExportImportVersion.latest,
+      if (_configs.enableMinify) 'minify'.toMainKey(minifier): true,
+      'position'.toMainKey(minifier):
           _configs.historySpan == ExportHistorySpan.current ||
-                  _configs.historySpan == ExportHistorySpan.currentAndForward
-              ? 0
-              : editorPosition - 1,
-      if (history.isNotEmpty) minifier.convertMainKey('history'): history,
+              _configs.historySpan == ExportHistorySpan.currentAndForward
+          ? 0
+          : _editorPosition - 1,
+      if (history.isNotEmpty) 'history'.toMainKey(minifier): history,
       if (widgetRecords.isNotEmpty)
-        minifier.convertMainKey('widgetRecords'): widgetRecords,
-      if (references.isNotEmpty)
-        minifier.convertMainKey('references'): references,
-      minifier.convertMainKey('imgSize'): {
-        minifier.convertSizeKey('width'): imageInfos.rawSize.width,
-        minifier.convertSizeKey('height'): imageInfos.rawSize.height,
+        'widgetRecords'.toMainKey(minifier): widgetRecords,
+      if (references.isNotEmpty) 'references'.toMainKey(minifier): references,
+      'imgSize'.toMainKey(minifier): {
+        'width'.toSizeKey(minifier): _imageInfos.rawSize.width.roundSmart(
+          maxDecimalPlaces,
+        ),
+        'height'.toSizeKey(minifier): _imageInfos.rawSize.height.roundSmart(
+          maxDecimalPlaces,
+        ),
       },
-      minifier.convertMainKey('lastRenderedImgSize'): {
-        minifier.convertSizeKey('width'): imageInfos.originalRenderedSize.width,
-        minifier.convertSizeKey('height'):
-            imageInfos.originalRenderedSize.height,
+      'lastRenderedImgSize'.toMainKey(minifier): {
+        'width'.toSizeKey(minifier): _imageInfos.originalRenderedSize.width
+            .roundSmart(maxDecimalPlaces),
+        'height'.toSizeKey(minifier): _imageInfos.originalRenderedSize.height
+            .roundSmart(maxDecimalPlaces),
       },
     };
   }
@@ -268,10 +277,16 @@ class ExportStateHistory {
     List<Map<String, dynamic>> convertedLayers = [];
     void updateReference(Layer layer, {int? recordPosition}) {
       if (recordPosition == null) {
-        layerReferences[layer.id] ??= layer.toMap();
+        layerReferences[layer.id] ??= layer.toMap(
+          maxDecimalPlaces: _configs.maxDecimalPlaces,
+          enableMinify: _configs.enableMinify,
+        );
       } else {
-        layerReferences[layer.id] ??=
-            (layer as WidgetLayer).toMap(recordPosition);
+        layerReferences[layer.id] ??= (layer as WidgetLayer).toMap(
+          recordPosition: recordPosition,
+          maxDecimalPlaces: _configs.maxDecimalPlaces,
+          enableMinify: _configs.enableMinify,
+        );
       }
       convertedLayers.add(
         layer.toMapFromReference(lastLayerStateHelper[layer.id] ?? layer),
@@ -279,11 +294,11 @@ class ExportStateHistory {
     }
 
     for (var layer in element.layers) {
-      if ((_configs.exportPaint && layer.runtimeType == PaintLayer) ||
-          (_configs.exportText && layer.runtimeType == TextLayer) ||
-          (_configs.exportEmoji && layer.runtimeType == EmojiLayer)) {
+      if ((_configs.exportPaint && layer.isPaintLayer) ||
+          (_configs.exportText && layer.isTextLayer) ||
+          (_configs.exportEmoji && layer.isEmojiLayer)) {
         updateReference(layer);
-      } else if (_configs.exportWidgets && layer.runtimeType == WidgetLayer) {
+      } else if (_configs.exportWidgets && layer.isWidgetLayer) {
         WidgetLayer widgetLayer = layer as WidgetLayer;
 
         if (widgetLayer.exportConfigs.hasParameter) {
@@ -294,15 +309,17 @@ class ExportStateHistory {
           updateReference(widgetLayer, recordPosition: widgetRecords.length);
 
           double imageWidth =
-              editorConfigs.stickerEditor.initWidth * layer.scale;
+              (layer.width ?? _editorConfigs.stickerEditor.initWidth) *
+              layer.scale;
 
           Size targetSize = Size(
-              imageWidth,
-              MediaQuery.sizeOf(context).height /
-                  MediaQuery.sizeOf(context).width *
-                  imageWidth);
+            imageWidth,
+            MediaQuery.sizeOf(_context).height /
+                MediaQuery.sizeOf(_context).width *
+                imageWidth,
+          );
 
-          Uint8List? result = await contentRecorderCtrl.capture(
+          Uint8List? result = await _contentRecorderCtrl.capture(
             widget: layer.widget,
             outputFormat: OutputFormat.png,
             imageInfos: imageInfos,

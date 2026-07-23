@@ -2,14 +2,17 @@
 import 'dart:convert';
 
 // Flutter imports:
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '/core/models/editor_image.dart';
 import '/core/models/history/state_history.dart';
 import '/core/models/layers/layer.dart';
 import '/core/platform/io/io_helper.dart';
-import '/features/crop_rotate_editor/models/transform_factors.dart';
-import '/features/filter_editor/utils/filter_generator/filter_addons.dart';
+import '/features/crop_rotate_editor/models/transform_configs.dart';
+import '/features/filter_editor/constants/identity_matrix_constant.dart';
+import '/features/filter_editor/types/filter_state.dart';
+import '/features/filter_editor/utils/lerp_color_matrix_utils.dart';
 import '/features/tune_editor/models/tune_adjustment_matrix.dart';
 import '../../utils/parser/double_parser.dart';
 import '../../utils/parser/int_parser.dart';
@@ -62,18 +65,21 @@ class ImportStateHistory {
     final tuneKey = minifier.convertHistoryKey('tune');
     final filtersKey = minifier.convertHistoryKey('filters');
     final transformKey = minifier.convertHistoryKey('transform');
+    final metaKey = minifier.convertHistoryKey('meta');
 
     /// Initialize default values
-    final version = map[minifier.convertMainKey('version')] as String? ??
+    final version =
+        map[minifier.convertMainKey('version')] as String? ??
         ExportImportVersion.version_1_0_0;
     final stateHistory = <EditorStateHistory>[];
-    final widgetRecords = _parseWidgetRecords(map, version, minifier);
-    final lastRenderedImgSize =
-        safeParseSize(map[minifier.convertMainKey('lastRenderedImgSize')]);
+    final widgetRecords = parseWidgetRecords(map, version, minifier);
+    final lastRenderedImgSize = safeParseSize(
+      map[minifier.convertMainKey('lastRenderedImgSize')],
+    );
     final List<EditorImage> requirePrecacheList = [];
 
     Map<String, Map<String, dynamic>> lastLayerStateHelper = {
-      ...map[minifier.convertMainKey('references')] ?? {}
+      ...map[minifier.convertMainKey('references')] ?? {},
     };
 
     var historyList =
@@ -89,10 +95,14 @@ class ImportStateHistory {
         case ExportImportVersion.version_3_0_1:
         case ExportImportVersion.version_3_0_0:
         case ExportImportVersion.version_4_0_0:
-          layers =
-              (historyItem['layers'] as List<dynamic>? ?? []).map((rawLayer) {
+          layers = (historyItem['layers'] as List<dynamic>? ?? []).map((
+            rawLayer,
+          ) {
             historyCompatibilityLayerInteraction(
-                layerMap: rawLayer, minifier: minifier, version: version);
+              layerMap: rawLayer,
+              minifier: minifier,
+              version: version,
+            );
             return Layer.fromMap(
               rawLayer,
               widgetRecords: widgetRecords,
@@ -103,7 +113,8 @@ class ImportStateHistory {
           break;
         default:
           for (var rawLayer in List.from(
-              historyItem[minifier.convertHistoryKey('layers')] ?? [])) {
+            historyItem[minifier.convertHistoryKey('layers')] ?? [],
+          )) {
             String id = rawLayer['id'];
             Map<String, dynamic> convertedLayerMap = {
               ...lastLayerStateHelper[id] ?? {},
@@ -118,17 +129,20 @@ class ImportStateHistory {
               );
             }
 
-            layers.add(Layer.fromMap(
-              convertedLayerMap,
-              widgetRecords: widgetRecords,
-              widgetLoader: configs.widgetLoader,
-              requirePrecache: requirePrecacheList.add,
-              minifier: minifier,
-              id: id,
-            ));
+            layers.add(
+              Layer.fromMap(
+                convertedLayerMap,
+                widgetRecords: widgetRecords,
+                widgetLoader: configs.widgetLoader,
+                requirePrecache: requirePrecacheList.add,
+                minifier: minifier,
+                id: id,
+              ),
+            );
 
-            lastLayerStateHelper[id] =
-                Map<String, Object>.from(convertedLayerMap);
+            lastLayerStateHelper[id] = Map<String, dynamic>.from(
+              convertedLayerMap,
+            );
           }
       }
 
@@ -138,7 +152,7 @@ class ImportStateHistory {
           : null;
 
       /// Filters
-      final filters = _parseFilters(historyItem[filtersKey], version);
+      final filters = parseFilterStates(historyItem[filtersKey], version);
 
       /// Tune Adjustments
       final tuneAdjustments = (historyItem[tuneKey] as List<dynamic>? ?? [])
@@ -146,20 +160,29 @@ class ImportStateHistory {
           .toList();
 
       /// Transformations
-      final transformConfigs = historyItem[transformKey] != null &&
+      final transformConfigs =
+          historyItem[transformKey] != null &&
               Map.from(historyItem[transformKey]).isNotEmpty
           ? TransformConfigs.fromMap(historyItem[transformKey])
           : stateHistory.isNotEmpty
-              ? stateHistory.last.transformConfigs
-              : TransformConfigs.empty();
+          ? stateHistory.last.transformConfigs
+          : TransformConfigs.empty();
 
-      stateHistory.add(EditorStateHistory(
-        blur: blur,
-        layers: layers,
-        filters: filters,
-        tuneAdjustments: tuneAdjustments,
-        transformConfigs: transformConfigs,
-      ));
+      /// Meta
+      final meta = historyItem[metaKey] is Map
+          ? Map<String, dynamic>.from(historyItem[metaKey] as Map)
+          : const <String, dynamic>{};
+
+      stateHistory.add(
+        EditorStateHistory(
+          blur: blur,
+          layers: layers,
+          filters: filters,
+          tuneAdjustments: tuneAdjustments,
+          transformConfigs: transformConfigs,
+          meta: meta,
+        ),
+      );
     }
 
     return ImportStateHistory._(
@@ -173,28 +196,107 @@ class ImportStateHistory {
     );
   }
 
+  /// Parses filter data into a list of [FilterState].
+  ///
+  /// New format (list of Maps each with `matrices` key + optional timeline
+  /// fields) is parsed via [FilterState.fromMap]. Older formats (plain list
+  /// of matrices) are handled by [parseFilters] and wrapped in a single
+  /// [FilterState].
+  @visibleForTesting
+  static List<FilterState> parseFilterStates(
+    dynamic filtersData,
+    String version,
+  ) {
+    if (filtersData == null) return const [];
+
+    // New format: list of FilterState maps
+    if (filtersData is List &&
+        filtersData.isNotEmpty &&
+        filtersData.first is Map) {
+      final firstMap = filtersData.first as Map;
+      if (firstMap.containsKey('matrices')) {
+        return filtersData
+            .map(
+              (e) => FilterState.fromMap(Map<String, dynamic>.from(e as Map)),
+            )
+            .toList();
+      }
+    }
+
+    // Single FilterState map (backward compat with previous format)
+    if (filtersData is Map<String, dynamic> &&
+        filtersData.containsKey('matrices')) {
+      return [FilterState.fromMap(filtersData)];
+    }
+
+    // Old formats: plain list of matrices
+    final matrices = parseFilters(filtersData, version);
+    if (matrices.isEmpty) return const [];
+    return [FilterState(name: '', matrices: matrices)];
+  }
+
   /// Helper to parse filters
-  static List<List<double>> _parseFilters(dynamic filtersData, String version) {
+  @visibleForTesting
+  static List<List<double>> parseFilters(dynamic filtersData, String version) {
     if (filtersData == null) return [];
 
-    switch (version) {
-      case ExportImportVersion.version_1_0_0:
-        return (filtersData as List<dynamic>).expand((el) {
-          final filterMatrix = List<List<double>>.from(el['filters'] ?? []);
-          final opacity = safeParseDouble(el['opacity'], fallback: 1);
-          if (opacity != 1) {
-            filterMatrix.add(ColorFilterAddons.opacity(opacity));
+    if (version.toVersionNumber() <=
+        ExportImportVersion.version_1_0_0.toVersionNumber()) {
+      return (filtersData as List<dynamic>).expand((el) {
+        final filterMatrix = <List<double>>[];
+        final rawFilters = List<List<dynamic>>.from(el['filters'] ?? []);
+        final opacity = safeParseDouble(el['opacity'], fallback: 1.0);
+
+        for (final f in rawFilters) {
+          final matrix = List<double>.from(f.map(safeParseDouble));
+
+          if (opacity == 1.0) {
+            filterMatrix.add(matrix);
+          } else {
+            filterMatrix.add(lerpColorMatrix(identityMatrix, matrix, opacity));
           }
-          return filterMatrix;
-        }).toList();
-      default:
-        return (filtersData as List<dynamic>)
-            .map((el) => List<double>.from(el))
-            .toList();
+        }
+
+        return filterMatrix;
+      }).toList();
+    } else if (version.toVersionNumber() <=
+        ExportImportVersion.version_6_2_0.toVersionNumber()) {
+      final result = <List<double>>[];
+
+      for (final List<dynamic> matrix in filtersData) {
+        final opacity = safeParseDouble(matrix[18]);
+
+        final originalMatrix = List<double>.from(matrix.map(safeParseDouble));
+        if (opacity != 1) {
+          var updatedMatrix = lerpColorMatrix(
+            identityMatrix,
+            originalMatrix,
+            opacity,
+          );
+
+          /// Set opacity to 1 as the other values are updated with lerp.
+          updatedMatrix[18] = 1.0;
+          result.add(updatedMatrix);
+        } else {
+          result.add(originalMatrix);
+        }
+      }
+
+      // Apply opacity by blending with identity
+      return result;
+    } else {
+      return (filtersData as List<dynamic>)
+          .map(
+            (el) =>
+                List<double>.from((el as List<dynamic>).map(safeParseDouble)),
+          )
+          .toList();
     }
   }
 
-  static List<Uint8List> _parseWidgetRecords(
+  /// Helper to parse widget records
+  @visibleForTesting
+  static List<Uint8List> parseWidgetRecords(
     Map<String, dynamic> map,
     String version,
     EditorKeyMinifier minifier,
@@ -210,7 +312,7 @@ class ImportStateHistory {
       default:
         items =
             (map[minifier.convertMainKey('widgetRecords')] as List<dynamic>? ??
-                []);
+            []);
         break;
     }
 

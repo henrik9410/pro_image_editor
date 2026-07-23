@@ -55,9 +55,19 @@ class MainEditorStateHistoryService {
   /// Callback for capturing a screenshot of the editor.
   final Function() takeScreenshot;
 
+  /// A flag indicating whether an import operation is currently in progress.
+  ///
+  /// This is used to track the state of an import process, where `true` means
+  /// the import is ongoing, and `false` means no import is in progress.
+  bool isImportInProgress = false;
+
   /// Imports state history and performs necessary recalculations.
   Future<void> importStateHistory(
-      ImportStateHistory import, BuildContext context) async {
+    ImportStateHistory import,
+    BuildContext context,
+    Function() setState,
+  ) async {
+    isImportInProgress = true;
     // Recalculate position and size if needed
     if (import.configs.recalculateSizeAndPosition ||
         import.version == ExportImportVersion.version_1_0_0) {
@@ -77,19 +87,19 @@ class MainEditorStateHistoryService {
     // Update state and UI
     stateManager.updateActiveItems();
     mainEditorCallbacks?.handleUpdateUI();
+    isImportInProgress = false;
   }
 
   /// Exports the current state history.
-  Future<ExportStateHistory> exportStateHistory({
+  ExportStateHistory exportStateHistory({
     ExportEditorConfigs configs = const ExportEditorConfigs(),
     required BuildContext context,
     required ImageInfos imageInfos,
-  }) async {
+  }) {
     return ExportStateHistory(
       editorConfigs: this.configs,
       stateHistory: stateManager.stateHistory,
       imageInfos: imageInfos,
-      imgSize: sizesManager.decodedImageSize,
       editorPosition: stateManager.historyPointer,
       configs: configs,
       contentRecorderCtrl: controllers.screenshot,
@@ -98,8 +108,16 @@ class MainEditorStateHistoryService {
   }
 
   void _recalculateSizeAndPosition(ImportStateHistory import) {
+    // A single layer instance can be shared across multiple history entries.
+    // Mutating it in place once per entry would compound the scale factor, so
+    // track processed instances by object identity and rescale each at most
+    // once. `Layer.==` is content-based, hence `Set<Layer>.identity()` to keep
+    // independent-but-equal copies distinct.
+    final processed = Set<Layer>.identity();
+
     for (EditorStateHistory el in import.stateHistory) {
       for (Layer layer in el.layers) {
+        if (!processed.add(layer)) continue;
         if (import.configs.recalculateSizeAndPosition) {
           Size currentImageSize = sizesManager.decodedImageSize;
           Size lastRenderedImgSize = import.lastRenderedImgSize;
@@ -133,36 +151,41 @@ class MainEditorStateHistoryService {
   }
 
   Future<void> _precacheLayers(
-      ImportStateHistory import, BuildContext context) async {
+    ImportStateHistory import,
+    BuildContext context,
+  ) async {
     await Future.wait(
       import.requirePrecacheList.toSet().map(
-            (item) => precacheImage(
-              item.toImageProvider(),
-              context,
-            ),
-          ),
+        (item) => precacheImage(item.toImageProvider(), context),
+      ),
     );
   }
 
   void _replaceStateHistory(ImportStateHistory import) {
+    bool enableInitialEmptyState = import.configs.enableInitialEmptyState;
+    bool enableEmptyHistory =
+        import.stateHistory.isEmpty || enableInitialEmptyState;
+
     stateManager
+      // Important to reset first the historyPointer
+      ..historyPointer = 0
       ..screenshots = []
       ..stateHistory = [
-        EditorStateHistory(
-          transformConfigs: TransformConfigs.empty(),
-          blur: 0,
-          filters: [],
-          layers: [],
-          tuneAdjustments: [],
-        ),
+        if (enableEmptyHistory)
+          EditorStateHistory(
+            transformConfigs: TransformConfigs.empty(),
+            blur: 0,
+            layers: [],
+            tuneAdjustments: [],
+          ),
         ...import.stateHistory,
       ]
-      ..historyPointer =
-          import.editorPosition + (import.stateHistory.isEmpty ? 0 : 1);
+      ..historyPointer = import.editorPosition + (enableEmptyHistory ? 1 : 0);
 
     for (var i = 0; i < import.stateHistory.length; i++) {
-      controllers.screenshot
-          .addEmptyScreenshot(screenshots: stateManager.screenshots);
+      controllers.screenshot.addEmptyScreenshot(
+        screenshots: stateManager.screenshots,
+      );
     }
   }
 
@@ -175,16 +198,19 @@ class MainEditorStateHistoryService {
       if (import.configs.mergeMode == ImportEditorMergeMode.merge) {
         el.layers.insertAll(0, stateManager.stateHistory.last.layers);
         el.filters.insertAll(0, stateManager.stateHistory.last.filters);
-        el.tuneAdjustments
-            .insertAll(0, stateManager.stateHistory.last.tuneAdjustments);
+        el.tuneAdjustments.insertAll(
+          0,
+          stateManager.stateHistory.last.tuneAdjustments,
+        );
       }
     }
 
     for (var i = 0; i < import.stateHistory.length; i++) {
       stateManager.stateHistory.add(import.stateHistory[i]);
       if (i < import.stateHistory.length - 1) {
-        controllers.screenshot
-            .addEmptyScreenshot(screenshots: stateManager.screenshots);
+        controllers.screenshot.addEmptyScreenshot(
+          screenshots: stateManager.screenshots,
+        );
       } else {
         takeScreenshot();
       }

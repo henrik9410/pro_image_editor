@@ -6,6 +6,7 @@ import '/core/mixins/converted_configs.dart';
 import '/core/mixins/editor_configs_mixin.dart';
 import '/designs/grounded/grounded_design.dart';
 import '/pro_image_editor.dart';
+import '/shared/widgets/editor_scrollbar.dart';
 
 /// A widget that provides the main bottom navigation bar for the
 /// ProImageEditor.
@@ -83,20 +84,18 @@ class GroundedMainBarState extends State<GroundedMainBar>
   }
 
   void _openEmojiEditor() async {
-    Layer? layer = await widget.editor.openPage(GroundedEmojiEditor(
-      configs: configs,
-      callbacks: callbacks,
-    ));
+    Layer? layer = await widget.editor.openPage(
+      GroundedEmojiEditor(configs: configs, callbacks: callbacks),
+    );
     if (layer == null || !mounted) return;
     layer.scale = configs.emojiEditor.initScale;
     widget.editor.addLayer(layer);
   }
 
   void _openStickerEditor() async {
-    Layer? layer = await widget.editor.openPage(GroundedStickerEditor(
-      configs: configs,
-      callbacks: callbacks,
-    ));
+    Layer? layer = await widget.editor.openPage(
+      GroundedStickerEditor(configs: configs, callbacks: callbacks),
+    );
     if (layer == null || !mounted) return;
     widget.editor.addLayer(layer);
   }
@@ -106,10 +105,8 @@ class GroundedMainBarState extends State<GroundedMainBar>
     return GroundedBottomWrapper(
       theme: configs.theme,
       children: (constraints) => [
-        Scrollbar(
+        EditorScrollbar(
           controller: _bottomBarScrollCtrl,
-          scrollbarOrientation: ScrollbarOrientation.top,
-          thickness: isDesktop ? null : 0,
           child: _buildFunctions(constraints),
         ),
         GroundedBottomBar(
@@ -143,10 +140,7 @@ class GroundedMainBarState extends State<GroundedMainBar>
             layoutBuilder: (currentChild, previousChildren) => Stack(
               clipBehavior: Clip.none,
               alignment: Alignment.bottomCenter,
-              children: <Widget>[
-                ...previousChildren,
-                if (currentChild != null) currentChild,
-              ],
+              children: <Widget>[...previousChildren, ?currentChild],
             ),
             duration: kGroundedFadeInDuration * 2,
             reverseDuration: const Duration(milliseconds: 0),
@@ -156,133 +150,127 @@ class GroundedMainBarState extends State<GroundedMainBar>
                 child: SizeTransition(
                   sizeFactor: animation,
                   axis: Axis.vertical,
-                  axisAlignment: -1,
+                  alignment: Alignment.topCenter,
                   child: child,
                 ),
               );
             },
             switchInCurve: Curves.ease,
-            child: widget.editor.isSubEditorOpen &&
+            child:
+                widget.editor.isSubEditorOpen &&
                     !widget.editor.isSubEditorClosing
                 ? SizedBox(width: _contentWidth)
                 : ConstrainedBox(
                     key: _contentKey,
                     constraints: BoxConstraints(
                       minHeight: kGroundedSubBarHeight,
-                      minWidth: min(constraints.maxWidth, 600),
-                      maxWidth: 600,
+                      minWidth: min(constraints.maxWidth, 700),
+                      maxWidth: 700,
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        if (paintEditorConfigs.enabled)
-                          FlatIconTextButton(
-                            spacing: 7,
-                            label: Text(
-                                i18n.paintEditor.bottomNavigationBarText,
-                                style: _bottomTextStyle),
-                            icon: Icon(
-                              paintEditorConfigs.icons.bottomNavBar,
-                              size: _bottomIconSize,
-                              color: _foreGroundColor,
-                            ),
-                            onPressed: widget.editor.openPaintEditor,
-                          ),
-                        if (textEditorConfigs.enabled)
-                          FlatIconTextButton(
-                            spacing: 7,
-                            label: Text(i18n.textEditor.bottomNavigationBarText,
-                                style: _bottomTextStyle),
-                            icon: Icon(
-                              textEditorConfigs.icons.bottomNavBar,
-                              size: _bottomIconSize,
-                              color: _foreGroundColor,
-                            ),
-                            onPressed: widget.editor.openTextEditor,
-                          ),
-                        if (cropRotateEditorConfigs.enabled)
-                          FlatIconTextButton(
-                            spacing: 7,
-                            label: Text(
-                                i18n.cropRotateEditor.bottomNavigationBarText,
-                                style: _bottomTextStyle),
-                            icon: Icon(
-                              cropRotateEditorConfigs.icons.bottomNavBar,
-                              size: _bottomIconSize,
-                              color: _foreGroundColor,
-                            ),
-                            onPressed: widget.editor.openCropRotateEditor,
-                          ),
-                        if (tuneEditorConfigs.enabled)
-                          FlatIconTextButton(
-                            spacing: 7,
-                            label: Text(i18n.tuneEditor.bottomNavigationBarText,
-                                style: _bottomTextStyle),
-                            icon: Icon(
-                              tuneEditorConfigs.icons.bottomNavBar,
-                              size: _bottomIconSize,
-                              color: _foreGroundColor,
-                            ),
-                            onPressed: widget.editor.openTuneEditor,
-                          ),
-                        if (filterEditorConfigs.enabled)
-                          FlatIconTextButton(
-                            spacing: 7,
-                            label: Text(
-                                i18n.filterEditor.bottomNavigationBarText,
-                                style: _bottomTextStyle),
-                            icon: Icon(
-                              filterEditorConfigs.icons.bottomNavBar,
-                              size: _bottomIconSize,
-                              color: _foreGroundColor,
-                            ),
-                            onPressed: widget.editor.openFilterEditor,
-                          ),
-                        if (blurEditorConfigs.enabled)
-                          FlatIconTextButton(
-                            spacing: 7,
-                            label: Text(i18n.blurEditor.bottomNavigationBarText,
-                                style: _bottomTextStyle),
-                            icon: Icon(
-                              blurEditorConfigs.icons.bottomNavBar,
-                              size: _bottomIconSize,
-                              color: _foreGroundColor,
-                            ),
-                            onPressed: widget.editor.openBlurEditor,
-                          ),
-                        if (emojiEditorConfigs.enabled)
-                          FlatIconTextButton(
-                            spacing: 7,
-                            label: Text(
-                                i18n.emojiEditor.bottomNavigationBarText,
-                                style: _bottomTextStyle),
-                            icon: Icon(
-                              emojiEditorConfigs.icons.bottomNavBar,
-                              size: _bottomIconSize,
-                              color: _foreGroundColor,
-                            ),
-                            onPressed: _openEmojiEditor,
-                          ),
-                        if (stickerEditorConfigs.enabled)
-                          FlatIconTextButton(
-                            spacing: 7,
-                            label: Text(
-                                i18n.stickerEditor.bottomNavigationBarText,
-                                style: _bottomTextStyle),
-                            icon: Icon(
-                              stickerEditorConfigs.icons.bottomNavBar,
-                              size: _bottomIconSize,
-                              color: _foreGroundColor,
-                            ),
-                            onPressed: _openStickerEditor,
-                          ),
-                      ],
+                      children: _buildToolList(),
                     ),
                   ),
           ),
         ),
       ),
     );
+  }
+
+  /// Creates a tool button with consistent styling.
+  Widget _createToolButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return FlatIconTextButton(
+      spacing: 7,
+      label: Text(label, style: _bottomTextStyle),
+      icon: Icon(icon, size: _bottomIconSize, color: _foreGroundColor),
+      onPressed: onPressed,
+    );
+  }
+
+  /// Maps a SubEditorMode to its corresponding tool button configuration.
+  Widget? _mapToolToButton(SubEditorMode tool) {
+    switch (tool) {
+      case SubEditorMode.paint:
+        return _createToolButton(
+          label: i18n.paintEditor.bottomNavigationBarText,
+          icon: paintEditorConfigs.icons.bottomNavBar,
+          onPressed: widget.editor.openPaintEditor,
+        );
+
+      case SubEditorMode.text:
+        return _createToolButton(
+          label: i18n.textEditor.bottomNavigationBarText,
+          icon: textEditorConfigs.icons.bottomNavBar,
+          onPressed: widget.editor.openTextEditor,
+        );
+
+      case SubEditorMode.cropRotate:
+        return _createToolButton(
+          label: i18n.cropRotateEditor.bottomNavigationBarText,
+          icon: cropRotateEditorConfigs.icons.bottomNavBar,
+          onPressed: widget.editor.openCropRotateEditor,
+        );
+
+      case SubEditorMode.tune:
+        return _createToolButton(
+          label: i18n.tuneEditor.bottomNavigationBarText,
+          icon: tuneEditorConfigs.icons.bottomNavBar,
+          onPressed: widget.editor.openTuneEditor,
+        );
+
+      case SubEditorMode.filter:
+        return _createToolButton(
+          label: i18n.filterEditor.bottomNavigationBarText,
+          icon: filterEditorConfigs.icons.bottomNavBar,
+          onPressed: widget.editor.openFilterEditor,
+        );
+
+      case SubEditorMode.blur:
+        return _createToolButton(
+          label: i18n.blurEditor.bottomNavigationBarText,
+          icon: blurEditorConfigs.icons.bottomNavBar,
+          onPressed: widget.editor.openBlurEditor,
+        );
+
+      case SubEditorMode.emoji:
+        return _createToolButton(
+          label: i18n.emojiEditor.bottomNavigationBarText,
+          icon: emojiEditorConfigs.icons.bottomNavBar,
+          onPressed: _openEmojiEditor,
+        );
+
+      case SubEditorMode.sticker:
+        return _createToolButton(
+          label: i18n.stickerEditor.bottomNavigationBarText,
+          icon: stickerEditorConfigs.icons.bottomNavBar,
+          onPressed: _openStickerEditor,
+        );
+
+      case SubEditorMode.audio:
+        return _createToolButton(
+          label: i18n.audioEditor.bottomNavigationBarText,
+          icon: audioEditorConfigs.icons.bottomNavBar,
+          onPressed: widget.editor.openAudioEditor,
+        );
+
+      case SubEditorMode.videoClips:
+        return _createToolButton(
+          label: i18n.clipsEditor.bottomNavigationBarText,
+          icon: clipsEditorConfigs.icons.bottomNavBar,
+          onPressed: widget.editor.openClipsEditor,
+        );
+    }
+  }
+
+  List<Widget> _buildToolList() {
+    final tools = widget.editor.configs.mainEditor.tools;
+
+    return tools.map(_mapToolToButton).whereType<Widget>().toList();
   }
 }

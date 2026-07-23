@@ -17,6 +17,7 @@ class FilterEditorCallbacks extends StandaloneEditorCallbacks {
     super.onUpdateUI,
     super.onDone,
     super.onCloseEditor,
+    super.onKeyboardEvent,
   });
 
   /// A callback function that is triggered when the filter factor changes.
@@ -59,5 +60,31 @@ class FilterEditorCallbacks extends StandaloneEditorCallbacks {
   void handleFilterChanged(FilterModel filter) {
     onFilterChanged?.call(filter);
     handleUpdateUI();
+  }
+
+  /// Creates a copy with modified editor callbacks.
+  FilterEditorCallbacks copyWith({
+    ValueChanged<double>? onFilterFactorChange,
+    ValueChanged<double>? onFilterFactorChangeEnd,
+    ValueChanged<FilterModel>? onFilterChanged,
+    Function()? onInit,
+    Function()? onAfterViewInit,
+    Function()? onUpdateUI,
+    Function()? onDone,
+    Function()? onCloseEditor,
+    bool Function(KeyEvent event)? onKeyboardEvent,
+  }) {
+    return FilterEditorCallbacks(
+      onFilterFactorChange: onFilterFactorChange ?? this.onFilterFactorChange,
+      onFilterFactorChangeEnd:
+          onFilterFactorChangeEnd ?? this.onFilterFactorChangeEnd,
+      onFilterChanged: onFilterChanged ?? this.onFilterChanged,
+      onKeyboardEvent: onKeyboardEvent ?? this.onKeyboardEvent,
+      onInit: onInit ?? this.onInit,
+      onAfterViewInit: onAfterViewInit ?? this.onAfterViewInit,
+      onUpdateUI: onUpdateUI ?? this.onUpdateUI,
+      onDone: onDone ?? this.onDone,
+      onCloseEditor: onCloseEditor ?? this.onCloseEditor,
+    );
   }
 }

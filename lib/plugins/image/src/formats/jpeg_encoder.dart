@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import '/plugins/image/src/color/color.dart';
+import '/plugins/image/src/color/color_int32.dart';
 import '/plugins/image/src/color/format.dart';
 import '/plugins/image/src/exif/exif_data.dart';
 import '/plugins/image/src/formats/jpeg/jpeg_marker.dart';
@@ -46,11 +47,17 @@ class JpegHealthyEncoder {
 
   Future<Uint8List> encode(
     Image image, {
+    int backgroundColor = 0xFF000000,
     JpegChroma chroma = JpegChroma.yuv444,
     bool singleFrame = false,
     Completer<void>? destroy$,
   }) async {
     final fp = OutputBuffer(bigEndian: true);
+    final bgr = (backgroundColor >> 16) & 0xFF;
+    final bgg = (backgroundColor >> 8) & 0xFF;
+    final bgb = backgroundColor & 0xFF;
+    final fallback = ColorInt32.rgb(bgr, bgg, bgb);
+    final imageBackground = image.backgroundColor ?? fallback;
 
     Future<void> healthCheck() async {
       await Future.delayed(const Duration(microseconds: 10));
@@ -82,7 +89,17 @@ class JpegHealthyEncoder {
 
       for (int y = 0; y < height; y += 8) {
         for (int x = 0; x < width; x += 8) {
-          _calculateYUV(image, x, y, width, height, ydu, udu, vdu);
+          _calculateYUV(
+            image,
+            x,
+            y,
+            width,
+            height,
+            ydu,
+            udu,
+            vdu,
+            imageBackground: imageBackground,
+          );
           dcy = _processDU(fp, ydu, _fdtblY, dcy, _ydcHuffman, _yacHuffman);
           dcu = _processDU(fp, udu, _fdtblUv, dcu, _uvdcHuffman, _uvacHuffman);
           dcv = _processDU(fp, vdu, _fdtblUv, dcv, _uvdcHuffman, _uvacHuffman);
@@ -101,11 +118,50 @@ class JpegHealthyEncoder {
 
       for (int y = 0; y < height; y += 16) {
         for (int x = 0; x < width; x += 16) {
-          _calculateYUV(image, x, y, width, height, ydu[0], udu[0], vdu[0]);
-          _calculateYUV(image, x + 8, y, width, height, ydu[1], udu[1], vdu[1]);
-          _calculateYUV(image, x, y + 8, width, height, ydu[2], udu[2], vdu[2]);
           _calculateYUV(
-              image, x + 8, y + 8, width, height, ydu[3], udu[3], vdu[3]);
+            image,
+            x,
+            y,
+            width,
+            height,
+            ydu[0],
+            udu[0],
+            vdu[0],
+            imageBackground: imageBackground,
+          );
+          _calculateYUV(
+            image,
+            x + 8,
+            y,
+            width,
+            height,
+            ydu[1],
+            udu[1],
+            vdu[1],
+            imageBackground: imageBackground,
+          );
+          _calculateYUV(
+            image,
+            x,
+            y + 8,
+            width,
+            height,
+            ydu[2],
+            udu[2],
+            vdu[2],
+            imageBackground: imageBackground,
+          );
+          _calculateYUV(
+            image,
+            x + 8,
+            y + 8,
+            width,
+            height,
+            ydu[3],
+            udu[3],
+            vdu[3],
+            imageBackground: imageBackground,
+          );
           _downsampleDU(sudu, udu[0], udu[1], udu[2], udu[3]);
           _downsampleDU(svdu, vdu[0], vdu[1], vdu[2], vdu[3]);
           dcy = _processDU(fp, ydu[0], _fdtblY, dcy, _ydcHuffman, _yacHuffman);
@@ -139,8 +195,9 @@ class JpegHealthyEncoder {
     int height,
     Float32List ydu,
     Float32List udu,
-    Float32List vdu,
-  ) {
+    Float32List vdu, {
+    required Color imageBackground,
+  }) {
     for (var pos = 0; pos < 64; pos++) {
       final row = pos >> 3; // / 8
       final col = pos & 7; // % 8
@@ -162,22 +219,33 @@ class JpegHealthyEncoder {
       if (p.format != Format.uint8) {
         p = p.convert(format: Format.uint8);
       }
+      if (p.length > 3) {
+        final a = p.aNormalized;
+        final invA = 1.0 - a;
+        p
+          ..r = (p.r * a + imageBackground.r * invA).round()
+          ..g = (p.g * a + imageBackground.g * invA).round()
+          ..b = (p.b * a + imageBackground.b * invA).round();
+      }
       final r = p.r.toInt();
       final g = p.g.toInt();
       final b = p.b.toInt();
 
       // calculate YUV values
-      ydu[pos] = ((_rgbYuvTable[r] +
+      ydu[pos] =
+          ((_rgbYuvTable[r] +
                   _rgbYuvTable[(g + 256)] +
                   _rgbYuvTable[(b + 512)]) >>
               16) -
           128.0;
-      udu[pos] = ((_rgbYuvTable[(r + 768)] +
+      udu[pos] =
+          ((_rgbYuvTable[(r + 768)] +
                   _rgbYuvTable[(g + 1024)] +
                   _rgbYuvTable[(b + 1280)]) >>
               16) -
           128.0;
-      vdu[pos] = ((_rgbYuvTable[(r + 1280)] +
+      vdu[pos] =
+          ((_rgbYuvTable[(r + 1280)] +
                   _rgbYuvTable[(g + 1536)] +
                   _rgbYuvTable[(b + 1792)]) >>
               16) -
@@ -196,11 +264,11 @@ class JpegHealthyEncoder {
     for (var posOut = 0; posOut < 64; posOut++) {
       final Float32List du = posOut < 32
           ? posOut % 8 < 4
-              ? duIn1
-              : duIn2
+                ? duIn1
+                : duIn2
           : posOut % 8 < 4
-              ? duIn3
-              : duIn4;
+          ? duIn3
+          : duIn4;
       final int pos = (((posOut % 32) ~/ 8) << 4) + ((posOut % 4) << 1);
       duOut[posOut] = (du[pos] + du[pos + 1] + du[pos + 8] + du[pos + 9]) / 4;
     }
@@ -277,7 +345,7 @@ class JpegHealthyEncoder {
       112,
       100,
       103,
-      99
+      99,
     ];
 
     for (var i = 0; i < 64; i++) {
@@ -354,7 +422,7 @@ class JpegHealthyEncoder {
       99,
       99,
       99,
-      99
+      99,
     ];
 
     for (var j = 0; j < 64; j++) {
@@ -375,7 +443,7 @@ class JpegHealthyEncoder {
       1.0,
       0.785694958,
       0.541196100,
-      0.275899379
+      0.275899379,
     ];
 
     var k = 0;
@@ -409,14 +477,22 @@ class JpegHealthyEncoder {
   }
 
   void _initHuffmanTable() {
-    _ydcHuffman =
-        _computeHuffmanTable(stdDcLuminanceNrCodes, stdDcLuminanceValues);
-    _uvdcHuffman =
-        _computeHuffmanTable(stdDcChrominanceNrCodes, stdDcChrominanceValues);
-    _yacHuffman =
-        _computeHuffmanTable(stdAcLuminanceNrCodes, stdAcLuminanceValues);
-    _uvacHuffman =
-        _computeHuffmanTable(stdAcChrominanceNrCodes, stdAcChrominanceValues);
+    _ydcHuffman = _computeHuffmanTable(
+      stdDcLuminanceNrCodes,
+      stdDcLuminanceValues,
+    );
+    _uvdcHuffman = _computeHuffmanTable(
+      stdDcChrominanceNrCodes,
+      stdDcChrominanceValues,
+    );
+    _yacHuffman = _computeHuffmanTable(
+      stdAcLuminanceNrCodes,
+      stdAcLuminanceValues,
+    );
+    _uvacHuffman = _computeHuffmanTable(
+      stdAcChrominanceNrCodes,
+      stdAcChrominanceValues,
+    );
   }
 
   void _initCategoryNumber() {
@@ -874,7 +950,7 @@ class JpegHealthyEncoder {
     57,
     58,
     62,
-    63
+    63,
   ];
 
   static const List<int> stdDcLuminanceNrCodes = [
@@ -894,7 +970,7 @@ class JpegHealthyEncoder {
     0,
     0,
     0,
-    0
+    0,
   ];
 
   static const List<int> stdDcLuminanceValues = [
@@ -909,7 +985,7 @@ class JpegHealthyEncoder {
     8,
     9,
     10,
-    11
+    11,
   ];
 
   static const List<int> stdAcLuminanceNrCodes = [
@@ -929,7 +1005,7 @@ class JpegHealthyEncoder {
     0,
     0,
     1,
-    0x7d
+    0x7d,
   ];
 
   static const List<int> stdAcLuminanceValues = [
@@ -1094,7 +1170,7 @@ class JpegHealthyEncoder {
     0xf7,
     0xf8,
     0xf9,
-    0xfa
+    0xfa,
   ];
 
   static const List<int> stdDcChrominanceNrCodes = [
@@ -1114,7 +1190,7 @@ class JpegHealthyEncoder {
     0,
     0,
     0,
-    0
+    0,
   ];
 
   static const List<int> stdDcChrominanceValues = [
@@ -1129,7 +1205,7 @@ class JpegHealthyEncoder {
     8,
     9,
     10,
-    11
+    11,
   ];
 
   static const List<int> stdAcChrominanceNrCodes = [
@@ -1149,7 +1225,7 @@ class JpegHealthyEncoder {
     0,
     1,
     2,
-    0x77
+    0x77,
   ];
 
   static const List<int> stdAcChrominanceValues = [
@@ -1314,7 +1390,7 @@ class JpegHealthyEncoder {
     0xf7,
     0xf8,
     0xf9,
-    0xfa
+    0xfa,
   ];
 
   int _byteNew = 0;

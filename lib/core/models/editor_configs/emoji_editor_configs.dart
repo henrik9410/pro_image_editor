@@ -1,10 +1,10 @@
-// Project imports:
-
 import 'dart:ui';
 
 import 'emoji_editor_configs.dart';
+import 'utils/base_editor_layer_configs.dart';
+import 'utils/base_sub_editor_configs.dart';
 
-export 'package:emoji_picker_flutter/emoji_picker_flutter.dart'
+export '/plugins/emoji_picker_flutter/emoji_picker_flutter.dart'
     show
         CategoryEmoji,
         emojiSetChinese,
@@ -37,13 +37,15 @@ export '../styles/emoji_editor_style.dart';
 ///   emojiSet: customEmojiSet,
 /// );
 /// ```
-class EmojiEditorConfigs {
+class EmojiEditorConfigs
+    implements BaseEditorLayerConfigs, BaseSubEditorConfigs {
   /// Creates an instance of EmojiEditorConfigs with optional settings.
   ///
   /// By default, the editor is enabled, and other properties are set to
   /// reasonable defaults.
   const EmojiEditorConfigs({
-    this.enabled = true,
+    this.layerFractionalOffset = const Offset(-0.5, -0.5),
+    this.enableGesturePop = true,
     this.enablePreloadWebFont = true,
     this.initScale = 5.0,
     this.minScale = double.negativeInfinity,
@@ -52,12 +54,19 @@ class EmojiEditorConfigs {
     this.emojiSet,
     this.style = const EmojiEditorStyle(),
     this.icons = const EmojiEditorIcons(),
-  })  : assert(initScale > 0, 'initScale must be positive'),
-        assert(maxScale >= minScale,
-            'maxScale must be greater than or equal to minScale');
+  }) : assert(initScale > 0, 'initScale must be positive'),
+       assert(
+         maxScale >= minScale,
+         'maxScale must be greater than or equal to minScale',
+       );
 
-  /// Indicates whether the emoji editor is enabled.
-  final bool enabled;
+  /// {@macro layerFractionalOffset}
+  @override
+  final Offset layerFractionalOffset;
+
+  /// {@macro enableGesturePop}
+  @override
+  final bool enableGesturePop;
 
   /// Indicates whether the web font should be preloaded on web platforms.
   ///
@@ -115,7 +124,8 @@ class EmojiEditorConfigs {
   /// [EmojiEditorConfigs] with some properties updated while keeping the
   /// others unchanged.
   EmojiEditorConfigs copyWith({
-    bool? enabled,
+    Offset? layerFractionalOffset,
+    bool? enableGesturePop,
     bool? enablePreloadWebFont,
     double? initScale,
     bool? checkPlatformCompatibility,
@@ -126,7 +136,9 @@ class EmojiEditorConfigs {
     EmojiEditorIcons? icons,
   }) {
     return EmojiEditorConfigs(
-      enabled: enabled ?? this.enabled,
+      layerFractionalOffset:
+          layerFractionalOffset ?? this.layerFractionalOffset,
+      enableGesturePop: enableGesturePop ?? this.enableGesturePop,
       enablePreloadWebFont: enablePreloadWebFont ?? this.enablePreloadWebFont,
       initScale: initScale ?? this.initScale,
       checkPlatformCompatibility:

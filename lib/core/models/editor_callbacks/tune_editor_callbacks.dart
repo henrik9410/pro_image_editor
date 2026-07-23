@@ -18,6 +18,7 @@ class TuneEditorCallbacks extends StandaloneEditorCallbacks {
     super.onRedo,
     super.onUndo,
     super.onCloseEditor,
+    super.onKeyboardEvent,
   });
 
   /// A callback function that is triggered when the tune factor changes.
@@ -61,5 +62,35 @@ class TuneEditorCallbacks extends StandaloneEditorCallbacks {
   void handleTuneChanged(String id) {
     onTuneChanged?.call(id);
     handleUpdateUI();
+  }
+
+  /// Creates a copy with modified editor callbacks.
+  TuneEditorCallbacks copyWith({
+    ValueChanged<List<TuneAdjustmentMatrix>>? onTuneFactorChange,
+    ValueChanged<List<TuneAdjustmentMatrix>>? onTuneFactorChangeEnd,
+    ValueChanged<String>? onTuneChanged,
+    Function()? onInit,
+    Function()? onAfterViewInit,
+    Function()? onUpdateUI,
+    Function()? onDone,
+    Function()? onRedo,
+    Function()? onUndo,
+    Function()? onCloseEditor,
+    bool Function(KeyEvent event)? onKeyboardEvent,
+  }) {
+    return TuneEditorCallbacks(
+      onTuneFactorChange: onTuneFactorChange ?? this.onTuneFactorChange,
+      onTuneFactorChangeEnd:
+          onTuneFactorChangeEnd ?? this.onTuneFactorChangeEnd,
+      onTuneChanged: onTuneChanged ?? this.onTuneChanged,
+      onKeyboardEvent: onKeyboardEvent ?? this.onKeyboardEvent,
+      onInit: onInit ?? this.onInit,
+      onAfterViewInit: onAfterViewInit ?? this.onAfterViewInit,
+      onUpdateUI: onUpdateUI ?? this.onUpdateUI,
+      onDone: onDone ?? this.onDone,
+      onRedo: onRedo ?? this.onRedo,
+      onUndo: onUndo ?? this.onUndo,
+      onCloseEditor: onCloseEditor ?? this.onCloseEditor,
+    );
   }
 }

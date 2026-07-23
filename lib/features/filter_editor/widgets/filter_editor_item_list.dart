@@ -8,10 +8,11 @@ import '/core/models/editor_configs/pro_image_editor_configs.dart';
 import '/core/models/editor_image.dart';
 import '/features/tune_editor/models/tune_adjustment_matrix.dart';
 import '/shared/widgets/animated/fade_in_up.dart';
+import '/shared/widgets/editor_scrollbar.dart';
 import '../types/filter_matrix.dart';
 import '../utils/filter_generator/filter_model.dart';
 import '../utils/filter_generator/filter_presets.dart';
-import 'filtered_image.dart';
+import 'filtered_widget.dart';
 
 /// A widget for displaying a list of filter editor items, allowing users
 /// to select and apply filters to an image.
@@ -19,7 +20,8 @@ class FilterEditorItemList extends StatefulWidget {
   /// Constructor for creating an instance of FilterEditorItemList.
   const FilterEditorItemList({
     super.key,
-    required this.editorImage,
+    this.editorImage,
+    this.image,
     this.activeFilters,
     this.activeTuneAdjustments = const [],
     this.blurFactor,
@@ -33,11 +35,17 @@ class FilterEditorItemList extends StatefulWidget {
     this.borderRadius,
     this.listHeight = 104.0,
     this.previewImageSize = const Size(64, 64),
-  });
+  }) : assert(
+         editorImage != null || image != null,
+         'Either editorImage or image must be provided.',
+       );
 
   /// The EditorImage class represents an image with multiple sources,
   /// including bytes, file, network URL, and asset path.
-  final EditorImage editorImage;
+  final EditorImage? editorImage;
+
+  /// A custom background image which can be used instant of the editorImage
+  final Widget? image;
 
   /// The image editor configs.
   final ProImageEditorConfigs configs;
@@ -125,17 +133,15 @@ class _FilterEditorItemListState extends State<FilterEditorItemList> {
   Widget _buildFilterList() {
     return SizedBox(
       height: widget.listHeight,
-      child: Scrollbar(
+      child: EditorScrollbar(
         controller: _scrollCtrl,
-        scrollbarOrientation: ScrollbarOrientation.bottom,
-        thumbVisibility: isDesktop,
-        trackVisibility: isDesktop,
         child: SingleChildScrollView(
           controller: _scrollCtrl,
           scrollDirection: Axis.horizontal,
           child: ConstrainedBox(
-            constraints:
-                BoxConstraints(minWidth: MediaQuery.sizeOf(context).width),
+            constraints: BoxConstraints(
+              minWidth: MediaQuery.sizeOf(context).width,
+            ),
             child: Padding(
               padding: _filterConfigs.style.filterListMargin,
               child: Wrap(
@@ -166,22 +172,20 @@ class _FilterEditorItemListState extends State<FilterEditorItemList> {
   }) {
     bool isSelected =
         widget.selectedFilter.hashCode == filter.filters.hashCode ||
-            (widget.selectedFilter.isEmpty && filter.filters.isEmpty);
+        (widget.selectedFilter.isEmpty && filter.filters.isEmpty);
 
     if (_filterConfigs.widgets.filterButton != null) {
       return _filterConfigs.widgets.filterButton!.call(
         FilterModel(
-          name: widget.configs.i18n.filterEditor.filters
-              .getFilterI18n(filter.name),
+          name: widget.configs.i18n.filterEditor.filters.getFilterI18n(
+            filter.name,
+          ),
           filters: filter.filters,
         ),
         isSelected,
         widget.itemScaleFactor,
         () => setState(() => widget.onSelectFilter(filter)),
-        _buildPreviewImage(
-          widget.previewImageSize,
-          filter,
-        ),
+        _buildPreviewImage(widget.previewImageSize, filter),
         ValueKey('Filter-${filter.name}-$index'),
       );
     }
@@ -203,10 +207,7 @@ class _FilterEditorItemListState extends State<FilterEditorItemList> {
               borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
               decoration: BoxDecoration(
                 borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
-                border: Border.all(
-                  color: const Color(0xFF242424),
-                  width: 1,
-                ),
+                border: Border.all(color: const Color(0xFF242424), width: 1),
               ),
             ),
             ConstrainedBox(
@@ -214,15 +215,19 @@ class _FilterEditorItemListState extends State<FilterEditorItemList> {
                 maxWidth: widget.previewImageSize.width,
               ),
               child: Text(
-                widget.configs.i18n.filterEditor.filters
-                    .getFilterI18n(filter.name),
+                widget.configs.i18n.filterEditor.filters.getFilterI18n(
+                  filter.name,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 11,
                   color: isSelected
                       ? widget
-                          .configs.filterEditor.style.previewSelectedTextColor
+                            .configs
+                            .filterEditor
+                            .style
+                            .previewSelectedTextColor
                       : _filterConfigs.style.previewTextColor,
                 ),
               ),
@@ -243,19 +248,22 @@ class _FilterEditorItemListState extends State<FilterEditorItemList> {
     TransformConfigs transformConfigs =
         widget.transformConfigs ?? TransformConfigs.empty();
 
-    bool emptyConfigs = transformConfigs.isEmpty;
+    bool emptyConfigs = transformConfigs.isEmpty && widget.editorImage != null;
 
     Size imageSize = emptyConfigs || transformConfigs.cropRect == Rect.largest
         ? widget.mainImageSize
         : transformConfigs.cropRect.size;
 
-    double offsetFactor =
-        emptyConfigs ? 1 : widget.mainImageSize.longestSide / size.shortestSide;
+    double offsetFactor = emptyConfigs
+        ? 1
+        : widget.mainImageSize.longestSide / size.shortestSide;
     double fitCoverScale = emptyConfigs
         ? 1
         : max(
-            max(widget.mainImageSize.aspectRatio,
-                1 / widget.mainImageSize.aspectRatio),
+            max(
+              widget.mainImageSize.aspectRatio,
+              1 / widget.mainImageSize.aspectRatio,
+            ),
             max(imageSize.aspectRatio, 1 / imageSize.aspectRatio),
           );
 
@@ -281,17 +289,17 @@ class _FilterEditorItemListState extends State<FilterEditorItemList> {
               scale: scale,
               child: Transform.translate(
                 offset: offset,
-                child: FilteredImage(
+                child: FilteredWidget(
+                  enableCachedSize: true,
                   image: widget.editorImage,
+                  videoPlayer: widget.image,
+                  blankSize: widget.mainImageSize,
                   fit: transformConfigs.isNotEmpty
                       ? BoxFit.contain
                       : BoxFit.cover,
                   width: size.width,
                   height: size.height,
-                  filters: [
-                    ...(widget.activeFilters ?? []),
-                    ...filter.filters,
-                  ],
+                  filters: [...(widget.activeFilters ?? []), ...filter.filters],
                   tuneAdjustments: widget.activeTuneAdjustments,
                   configs: widget.configs,
                   blurFactor: widget.blurFactor ?? 0,

@@ -6,35 +6,22 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
-  build:
+  publish:
+    permissions:
+      id-token: write # Required for authentication using OIDC
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    # with:
+    #   working-directory: path/to/package/within/repository
+
+  github-release:
+    needs: publish
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
     steps:
-      - name: Clone repository
-        uses: actions/checkout@v4
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          channel: stable
-          flutter-version: 3.29.0
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Analyze code
-        run: flutter analyze .
-
-      - name: Run tests
-        run: flutter test
-
-      - name: Setup Pub Credentials
-        run: |
-             echo "PUB_DEV_PUBLISH_ACCESS_TOKEN=${{ secrets.PUB_DEV_PUBLISH_ACCESS_TOKEN }}" >> $GITHUB_ENV
-             echo "PUB_DEV_PUBLISH_REFRESH_TOKEN=${{ secrets.PUB_DEV_PUBLISH_REFRESH_TOKEN }}" >> $GITHUB_ENV
-
-      - name: Check Publish Warnings
-        run: dart pub publish --dry-run
-
-      - name: Publish Package
-        run: dart pub publish -f
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true

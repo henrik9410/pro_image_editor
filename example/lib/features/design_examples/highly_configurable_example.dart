@@ -34,7 +34,7 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
       callbacks: ProImageEditorCallbacks(
         onImageEditingStarted: onImageEditingStarted,
         onImageEditingComplete: onImageEditingComplete,
-        onCloseEditor: onCloseEditor,
+        onCloseEditor: (editorMode) => onCloseEditor(editorMode: editorMode),
         mainEditorCallbacks: MainEditorCallbacks(
           helperLines: HelperLinesCallbacks(onLineHit: vibrateLineHit),
         ),
@@ -144,9 +144,8 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
             exposure: 'Exposure',
             hue: 'Hue',
             temperature: 'Temperature',
-            sharpness: 'Sharpness',
             fade: 'Fade',
-            luminance: 'Luminance',
+            tint: 'Tint',
             undo: 'Undo',
             redo: 'Redo',
           ),
@@ -179,6 +178,16 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
           ),
         ),
         mainEditor: const MainEditorConfigs(
+          tools: [
+            SubEditorMode.paint,
+            SubEditorMode.text,
+            SubEditorMode.cropRotate,
+            SubEditorMode.tune,
+            SubEditorMode.filter,
+            SubEditorMode.blur,
+            SubEditorMode.emoji,
+            SubEditorMode.sticker,
+          ],
           style: MainEditorStyle(
             background: Color.fromARGB(255, 255, 169, 169),
             appBarColor: Color.fromARGB(255, 126, 14, 6),
@@ -203,17 +212,17 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
           ),
         ),
         paintEditor: const PaintEditorConfigs(
-          enabled: true,
-          enableModeFreeStyle: true,
-          enableModeArrow: true,
-          enableModeLine: true,
-          enableModeRect: true,
-          enableModeCircle: true,
-          enableModeDashLine: true,
+          tools: [
+            PaintMode.freeStyle,
+            PaintMode.arrow,
+            PaintMode.line,
+            PaintMode.rect,
+            PaintMode.circle,
+            PaintMode.dashLine,
+          ],
           showToggleFillButton: true,
           showLineWidthAdjustmentButton: true,
           isInitiallyFilled: true,
-          enableFreeStyleHighPerformanceScaling: true,
           initialPaintMode: PaintMode.freeStyle,
           style: PaintEditorStyle(
             appBarColor: Color(0xFFE1E1E1),
@@ -240,7 +249,6 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
           ),
         ),
         textEditor: TextEditorConfigs(
-          enabled: true,
           showTextAlignButton: true,
           showBackgroundModeButton: true,
           initFontSize: 24.0,
@@ -275,9 +283,12 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
           ],
         ),
         cropRotateEditor: const CropRotateEditorConfigs(
-          enabled: true,
-          showRotateButton: true,
-          showAspectRatioButton: true,
+          tools: [
+            CropRotateTool.rotate,
+            CropRotateTool.flip,
+            CropRotateTool.aspectRatio,
+            CropRotateTool.reset,
+          ],
           initAspectRatio: 0.0,
           aspectRatios: [
             AspectRatioItem(text: 'Free', value: null),
@@ -312,7 +323,6 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
           ),
         ),
         tuneEditor: TuneEditorConfigs(
-          enabled: true,
           showLayers: true,
           tuneAdjustmentOptions: [
             const TuneAdjustmentItem(
@@ -379,22 +389,14 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
               },
             ),
             const TuneAdjustmentItem(
-              id: 'sharpness',
-              icon: Icons.shutter_speed,
-              label: 'Sharpness',
-              min: 0,
-              max: 1,
-              divisions: 100,
-              toMatrix: ColorFilterAddons.sharpness,
-            ),
-            const TuneAdjustmentItem(
-              id: 'luminance',
-              icon: Icons.light_mode_outlined,
-              label: 'Luminance',
-              min: -1,
-              max: 1,
+              id: 'tint',
+              icon: Icons.tonality_outlined,
+              label: 'Tint',
+              min: -0.5,
+              max: .5,
               divisions: 200,
-              toMatrix: ColorFilterAddons.luminance,
+              labelMultiplier: 200,
+              toMatrix: ColorFilterAddons.tint,
             ),
             const TuneAdjustmentItem(
               id: 'fade',
@@ -419,7 +421,6 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
           ),
         ),
         filterEditor: FilterEditorConfigs(
-          enabled: true,
           filterList: presetFiltersList,
           style: const FilterEditorStyle(
             appBarBackground: Color.fromARGB(255, 82, 0, 82),
@@ -432,7 +433,6 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
           ),
         ),
         blurEditor: const BlurEditorConfigs(
-          enabled: true,
           maxBlur: 20.0,
           style: BlurEditorStyle(
             appBarBackgroundColor: Color.fromARGB(255, 56, 0, 0),
@@ -444,7 +444,6 @@ class _HighlyConfigurableExampleState extends State<HighlyConfigurableExample>
           ),
         ),
         emojiEditor: const EmojiEditorConfigs(
-          enabled: true,
           initScale: 2.0,
           checkPlatformCompatibility: true,
           style: EmojiEditorStyle(

@@ -1,12 +1,22 @@
+import '/core/models/editor_image.dart';
 import '/core/models/history/state_history.dart';
 import '/core/models/layers/layer.dart';
 import '/core/models/multi_threading/thread_capture_model.dart';
-import '/features/crop_rotate_editor/models/transform_factors.dart';
-import '/features/filter_editor/types/filter_matrix.dart';
+import '/features/filter_editor/types/filter_state.dart';
 import '/features/tune_editor/models/tune_adjustment_matrix.dart';
+import '../../crop_rotate_editor/models/transform_configs.dart';
 
 /// A class for managing the state and history of image editing changes.
 class StateManager {
+  /// Creates an instance of [StateManager].
+  StateManager({
+    required this.onStateHistoryChange,
+    required this.activeBackgroundImage,
+  });
+
+  /// Optional callbacks for additional editor actions.
+  final Function()? onStateHistoryChange;
+
   /// Position in the state history.
   int _historyPointer = 0;
 
@@ -39,6 +49,34 @@ class StateManager {
   /// for undo/redo functionality.
   List<EditorStateHistory> get stateHistory => _stateHistory;
 
+  final Map<int, EditorImage> _backgroundImages = {};
+
+  /// The currently active background image in the editor.
+  EditorImage? activeBackgroundImage;
+
+  /// Updates the background images in the editor's history.
+  ///
+  /// Replaces the background image at the current history pointer with
+  /// [oldImage], and sets the next history entry to [newImage]. Also updates
+  /// the [activeBackgroundImage] to [newImage].
+  ///
+  /// Parameters:
+  /// - [oldImage]: The previous background image to store at the current
+  /// history pointer.
+  /// - [newImage]: The new background image to store at the next history
+  /// pointer.
+  void updateBackgroundImages({
+    required EditorImage oldImage,
+    required EditorImage newImage,
+  }) {
+    _backgroundImages[historyPointer - 1] ??= oldImage.copyWith();
+    _backgroundImages[historyPointer] = newImage.copyWith();
+    activeBackgroundImage = newImage.copyWith();
+    for (var item in screenshots) {
+      item.broken = true;
+    }
+  }
+
   /// A setter for updating the state history list.
   /// When a new list of editor states is assigned, it triggers
   /// `_updateActiveItems()` to refresh any dependent components based on the
@@ -68,60 +106,49 @@ class StateManager {
   void updateActiveItems() {
     var activeHistory = _stateHistory.getRange(0, _historyPointer + 1);
 
-    _activeFilters = [];
+    activeFilters = _stateHistory[historyPointer].filters;
 
-    _activeFilters = activeHistory
-        .lastWhere((item) => item.filters.isNotEmpty,
-            orElse: EditorStateHistory.new)
-        .filters;
-
-    _activeTuneAdjustments = activeHistory
-        .lastWhere((item) => item.tuneAdjustments.isNotEmpty,
-            orElse: EditorStateHistory.new)
-        .tuneAdjustments;
+    activeTuneAdjustments = _stateHistory[historyPointer].tuneAdjustments;
 
     activeLayers = _stateHistory[historyPointer].layers;
-    /* activeHistory.where((item) => item.layers != null).forEach((entry) {
-      for (var layer in entry.layers!) {
-        _activeLayers.removeWhere((el) => el.id == layer.id);
-        if (!layer.isDeleted) {
-          _activeLayers.add(layer);
-        }
-      }
-    }); */
 
-    _transformConfigs = activeHistory
-            .lastWhere((item) => item.transformConfigs != null,
-                orElse: EditorStateHistory.new)
+    activeMeta = _stateHistory[historyPointer].meta;
+
+    _transformConfigs =
+        activeHistory
+            .lastWhere(
+              (item) => item.transformConfigs != null,
+              orElse: EditorStateHistory.new,
+            )
             .transformConfigs ??
         TransformConfigs.empty();
 
-    _activeBlur = activeHistory
-            .lastWhere((item) => item.blur != null,
-                orElse: EditorStateHistory.new)
+    _activeBlur =
+        activeHistory
+            .lastWhere(
+              (item) => item.blur != null,
+              orElse: EditorStateHistory.new,
+            )
             .blur ??
         0.0;
+
+    onStateHistoryChange?.call();
+
+    if (_backgroundImages[historyPointer] != null) {
+      activeBackgroundImage = _backgroundImages[historyPointer]!.copyWith();
+    }
   }
 
-  /// A list of active filters applied to the image.
-  /// This stores instances of `FilterMatrix`, representing various filter
-  /// adjustments.
-  FilterMatrix _activeFilters = [];
+  /// The active filter states applied to the image.
+  /// Each [FilterState] contains filter matrices and optional
+  /// video-timeline metadata.
+  List<FilterState> activeFilters = const [];
 
-  /// A getter that returns the list of currently applied filters.
-  /// Use this to retrieve the active `FilterMatrix` configurations.
-  FilterMatrix get activeFilters => _activeFilters;
-
-  /// A list of active tune adjustments for the image, such as brightness,
+  /// The active tune adjustments for the image, such as brightness,
   /// contrast, etc.
   /// Each element in the list is of type `TuneAdjustmentMatrix`, representing
   /// specific adjustment settings.
-  List<TuneAdjustmentMatrix> _activeTuneAdjustments = [];
-
-  /// A getter that returns the list of currently applied tune adjustments.
-  /// This is used to access the active `TuneAdjustmentMatrix` configurations.
-  List<TuneAdjustmentMatrix> get activeTuneAdjustments =>
-      _activeTuneAdjustments;
+  List<TuneAdjustmentMatrix> activeTuneAdjustments = [];
 
   /// The current transformation configurations applied to the image,
   /// including rotation, scaling, or other transformations.
@@ -145,6 +172,9 @@ class StateManager {
   /// Get the list of layers from the current image editor changes.
   List<Layer> activeLayers = [];
 
+  /// The metadata of the current history entry.
+  Map<String, dynamic> activeMeta = const {};
+
   /// Flag indicating if a hero screenshot is required.
   bool heroScreenshotRequired = false;
 
@@ -153,8 +183,10 @@ class StateManager {
 
   /// Retrieves the currently active screenshot based on the position.
   ThreadCaptureState? get activeScreenshot {
-    return screenshots.length > _historyPointer - 1
-        ? screenshots[_historyPointer - 1]
+    var historyPos = _historyPointer - 1;
+
+    return screenshots.length > historyPos && historyPos >= 0
+        ? screenshots[historyPos]
         : null;
   }
 
@@ -182,6 +214,7 @@ class StateManager {
       while (_historyPointer < screenshots.length) {
         screenshots.removeLast();
       }
+      _backgroundImages.removeWhere((index, _) => index > _historyPointer);
     }
     _historyPointer = _stateHistory.length - 1;
   }
@@ -233,12 +266,35 @@ class StateManager {
     EditorStateHistory history, {
     int historyLimit = 1000,
     bool enableScreenshotLimit = true,
+    bool skipUpdateActiveItems = false,
   }) {
     _cleanForwardChanges();
     _stateHistory.add(history);
     historyPointer = _stateHistory.length - 1;
     setHistoryLimit(historyLimit, enableScreenshotLimit);
-    updateActiveItems();
+    if (!skipUpdateActiveItems) updateActiveItems();
+  }
+
+  /// Replaces a history entry in the stack.
+  ///
+  /// By default, the currently active history entry is replaced. You can
+  /// provide [index] to replace any specific history position.
+  ///
+  /// Throws an [ArgumentError] when [index] is out of range.
+  void replaceHistory(
+    EditorStateHistory history, {
+    int? index,
+    bool skipUpdateActiveItems = false,
+  }) {
+    final targetIndex = index ?? _historyPointer;
+
+    if (targetIndex < 0 || targetIndex >= _stateHistory.length) {
+      throw ArgumentError('History index out of range');
+    }
+
+    _stateHistory[targetIndex] = history;
+
+    if (!skipUpdateActiveItems) updateActiveItems();
   }
 
   /// Redoes the last undone change, moving the history pointer forward by one

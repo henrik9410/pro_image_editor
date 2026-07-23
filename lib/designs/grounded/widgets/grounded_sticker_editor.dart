@@ -1,10 +1,9 @@
 // Flutter imports:
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:pro_image_editor/designs/frosted_glass/frosted_glass.dart';
 
-// Project imports:
-import 'package:pro_image_editor/pro_image_editor.dart';
+import '/pro_image_editor.dart';
+import '../../frosted_glass/frosted_glass.dart';
 
 /// A widget that provides the sticker editor interface in the ProImageEditor.
 ///
@@ -79,8 +78,10 @@ class _GroundedStickerEditorState extends State<GroundedStickerEditor> {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 3, horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 3,
+                  horizontal: 12,
+                ),
                 color: const Color(0xFF222222),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -92,7 +93,9 @@ class _GroundedStickerEditorState extends State<GroundedStickerEditor> {
                           setState(() {
                             _searchCtrl.clear();
                             _activeSearch = false;
-                            widget.callbacks.stickerEditorCallbacks
+                            widget
+                                .callbacks
+                                .stickerEditorCallbacks
                                 ?.onSearchChanged
                                 ?.call('');
                           });
@@ -126,7 +129,7 @@ class _GroundedStickerEditorState extends State<GroundedStickerEditor> {
                     ),
                   ],
                 ),
-              )
+              ),
             ],
           ),
         ),
@@ -160,9 +163,7 @@ class _GroundedStickerEditorState extends State<GroundedStickerEditor> {
                     });
                   },
                   itemColor: const Color.fromARGB(255, 243, 243, 243),
-                  style: const TextStyle(
-                    color: Colors.white,
-                  ),
+                  style: const TextStyle(color: Colors.white),
                 ),
               ),
               CupertinoButton(

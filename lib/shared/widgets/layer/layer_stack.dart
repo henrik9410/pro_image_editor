@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '/core/models/editor_configs/pro_image_editor_configs.dart';
 import '/core/models/layers/layer.dart';
 import '/core/models/transform_helper.dart';
+import '/features/crop_rotate_editor/enums/crop_mode.enum.dart';
 import '/features/crop_rotate_editor/widgets/crop_layer_painter.dart';
 import 'layer_widget.dart';
 
@@ -26,7 +27,6 @@ class LayerStack extends StatelessWidget {
   ///   configs: myEditorConfigs,
   ///   layers: myLayers,
   ///   cutOutsideImageArea: true,
-  ///   freeStyleHighPerformance: true,
   ///   transformHelper: myTransformHelper,
   /// )
   /// ```
@@ -36,7 +36,7 @@ class LayerStack extends StatelessWidget {
     required this.layers,
     required this.overlayColor,
     this.cutOutsideImageArea,
-    this.freeStyleHighPerformance = false,
+    this.enableLayerKey = false,
     this.transformHelper = const TransformHelper(
       editorBodySize: Size.zero,
       mainBodySize: Size.zero,
@@ -79,67 +79,71 @@ class LayerStack extends StatelessWidget {
   /// content that extends beyond the boundaries.
   final bool? cutOutsideImageArea;
 
-  /// Controls high-performance mode for free-style drawing.
-  ///
-  /// Enabling this option may improve performance when drawing free-style
-  /// elements on the canvas, at the potential cost of rendering quality.
-  final bool freeStyleHighPerformance;
+  /// A flag that determines whether the layer key functionality is enabled.
+  /// When set to `true`, the layer key feature is active; otherwise, it is
+  /// disabled.
+  final bool enableLayerKey;
 
   bool get _cutOutsideImageArea =>
       cutOutsideImageArea ?? configs.imageGeneration.cropToImageBounds;
 
+  TransformConfigs? get _transformConfigs =>
+      transformHelper.transformConfigs?.isNotEmpty == true
+      ? transformHelper.transformConfigs
+      : null;
   @override
   Widget build(BuildContext context) {
-    // Retrieve transformation configurations, if available.
-    TransformConfigs? transformConfigs =
-        transformHelper.transformConfigs != null &&
-                transformHelper.transformConfigs!.isNotEmpty
-            ? transformHelper.transformConfigs
-            : null;
-
-    return Stack(
-      children: [
-        IgnorePointer(
-          child: Transform.scale(
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          Transform.scale(
             scale: transformHelper.scale,
             child: Stack(
-                fit: StackFit.expand,
-                alignment: Alignment.center,
-                clipBehavior: clipBehavior,
-                children: layers.map((layerItem) {
-                  return LayerWidget(
-                    configs: configs,
-                    highPerformanceMode: freeStyleHighPerformance,
-                    editorCenterX: transformHelper.editorBodySize.width / 2,
-                    editorCenterY: transformHelper.editorBodySize.height / 2,
-                    layerData: layerItem,
-                  );
-                }).toList()),
-          ),
-        ),
-        if (configs.imageGeneration.cropToImageBounds)
-          RepaintBoundary(
-            child: Hero(
-              tag: 'crop_layer_painter_hero',
-              child: CustomPaint(
-                foregroundPainter: _cutOutsideImageArea
-                    ? CropLayerPainter(
-                        opacity: configs
-                            .mainEditor.style.outsideCaptureAreaLayerOpacity,
-                        backgroundColor: overlayColor,
-                        imgRatio: transformConfigs?.cropRect.size.aspectRatio ??
-                            transformHelper.mainImageSize.aspectRatio,
-                        isRoundCropper:
-                            configs.cropRotateEditor.enableRoundCropper,
-                        is90DegRotated:
-                            transformConfigs?.is90DegRotated ?? false,
-                      )
-                    : null,
-                child: const SizedBox.expand(),
-              ),
+              fit: StackFit.expand,
+              alignment: Alignment.center,
+              clipBehavior: clipBehavior,
+              children: layers.map((layerItem) {
+                return LayerWidget(
+                  key: enableLayerKey ? layerItem.key : null,
+                  layer: layerItem,
+                  configs: configs,
+                  editorBodySize: transformHelper.editorBodySize,
+                );
+              }).toList(),
             ),
           ),
-      ],
+          if (configs.imageGeneration.cropToImageBounds)
+            RepaintBoundary(
+              child: Hero(
+                tag: 'crop_layer_painter_hero',
+                child: CustomPaint(
+                  foregroundPainter: _cutOutsideImageArea
+                      ? _buildCropPainter()
+                      : null,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  CustomPainter _buildCropPainter() {
+    final imgRatio =
+        _transformConfigs?.cropRect.size.aspectRatio ??
+        configs.cropRotateEditor.initialOvalCropAspectRatio ??
+        transformHelper.mainImageSize.aspectRatio;
+    final isRoundCropper =
+        _transformConfigs?.isOvalCropper ??
+        configs.cropRotateEditor.initialCropMode == CropMode.oval;
+
+    return CropLayerPainter(
+      opacity: configs.mainEditor.style.outsideCaptureAreaLayerOpacity,
+      backgroundColor: overlayColor,
+      imgRatio: imgRatio,
+      isRoundCropper: isRoundCropper,
+      is90DegRotated: _transformConfigs?.is90DegRotated ?? false,
     );
   }
 }

@@ -10,7 +10,7 @@ import 'color.dart';
 import 'format.dart';
 
 /// A 16-bit unsigned int color with channel values in the range \[0, 65535].
-class ColorUint16 extends Iterable<num> implements Color {
+class ColorUint16 extends Color {
   ColorUint16(int numChannels) : data = Uint16List(numChannels);
 
   ColorUint16.from(ColorUint16 other) : data = Uint16List.fromList(other.data);
@@ -126,8 +126,8 @@ class ColorUint16 extends Iterable<num> implements Color {
   num getChannel(Channel channel) => channel == Channel.luminance
       ? luminance
       : channel.index < data.length
-          ? data[channel.index]
-          : 0;
+      ? data[channel.index]
+      : 0;
 
   @override
   num getChannelNormalized(Channel channel) =>
@@ -179,7 +179,10 @@ class ColorUint16 extends Iterable<num> implements Color {
   int get hashCode => Object.hashAll(toList());
 
   @override
-  Color convert({Format? format, int? numChannels, num? alpha}) =>
-      convertColor(this,
-          format: format, numChannels: numChannels, alpha: alpha);
+  Color convert({Format? format, int? numChannels, num? alpha}) => convertColor(
+    this,
+    format: format,
+    numChannels: numChannels,
+    alpha: alpha,
+  );
 }

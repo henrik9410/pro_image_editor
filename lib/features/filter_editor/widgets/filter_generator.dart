@@ -1,8 +1,14 @@
 // Flutter imports:
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '/shared/utils/timeline_progress.dart';
 import '../../tune_editor/models/tune_adjustment_matrix.dart';
+import '../constants/identity_matrix_constant.dart';
 import '../types/filter_matrix.dart';
+import '../types/filter_state.dart';
+import '../utils/combine_color_matrix_utils.dart';
+import '../utils/lerp_color_matrix_utils.dart';
 
 /// A widget for applying color filters to its child widget.
 class ColorFilterGenerator extends StatefulWidget {
@@ -12,6 +18,10 @@ class ColorFilterGenerator extends StatefulWidget {
     required this.filters,
     required this.tuneAdjustments,
     required this.child,
+    this.filterStates,
+    this.playTimeNotifier,
+    this.defaultEnterCurve = Curves.easeIn,
+    this.defaultExitCurve = Curves.easeOut,
   });
 
   /// The matrix of filters to apply.
@@ -22,6 +32,27 @@ class ColorFilterGenerator extends StatefulWidget {
 
   /// The child widget to which the filters are applied.
   final Widget child;
+
+  /// Optional timeline-aware filter states for the video editor.
+  ///
+  /// When provided together with [playTimeNotifier], each [FilterState] is
+  /// evaluated against the current video position and lerped with the identity
+  /// matrix during enter/exit transitions.
+  final List<FilterState>? filterStates;
+
+  /// Notifier that provides the current video playback position.
+  ///
+  /// When `null`, timeline fields on [filterStates] and [tuneAdjustments] are
+  /// ignored and all matrices are applied unconditionally.
+  final ValueNotifier<Duration>? playTimeNotifier;
+
+  /// Default enter curve used when a [FilterState] or [TuneAdjustmentMatrix]
+  /// does not specify its own.
+  final Curve defaultEnterCurve;
+
+  /// Default exit curve used when a [FilterState] or [TuneAdjustmentMatrix]
+  /// does not specify its own.
+  final Curve defaultExitCurve;
 
   /// Creates the state for the ColorFilterGenerator widget.
   @override
@@ -37,69 +68,153 @@ class ColorFilterGenerator extends StatefulWidget {
 /// It extends the `State` class, which means it holds mutable state for the
 /// `ColorFilterGenerator` widget.
 class ColorFilterGeneratorState extends State<ColorFilterGenerator> {
-  late Widget _filteredWidget;
-
-  late FilterMatrix _tempFilters;
-  late List<TuneAdjustmentMatrix> _tempTuneAdjustments;
+  late List<double> _combinedMatrix;
 
   @override
   void initState() {
     super.initState();
-    _generateFilteredWidget();
+    _recomputeMatrix();
+    widget.playTimeNotifier?.addListener(_onTimeChanged);
   }
 
-  /// Generates a filtered widget by applying a series of color filters and
-  /// tune adjustments to the child widget.
-  ///
-  /// This method combines the filters and tune adjustments provided in the
-  /// widget's properties and applies them sequentially to the child widget.
-  /// The resulting widget with all the applied filters is stored in the
-  /// `_filteredWidget` variable.
-  ///
-  /// The filters and tune adjustments are expected to be in the form of color
-  /// matrices, which are
-  /// applied using the `ColorFiltered` widget.
-  ///
-  /// The method performs the following steps:
-  /// 1. Initializes the `tree` variable with the child widget.
-  /// 2. Stores the filters and tune adjustments in temporary variables.
-  /// 3. Combines the filters and tune adjustments into a single list of color
-  /// matrices.
-  /// 4. Iterates through the list of color matrices and applies each one to
-  /// the `tree` widget.
-  /// 5. Stores the final filtered widget in the `_filteredWidget` variable.
-  void _generateFilteredWidget() {
-    Widget tree = widget.child;
-    _tempFilters = widget.filters;
-    _tempTuneAdjustments = widget.tuneAdjustments;
+  @override
+  void didUpdateWidget(covariant ColorFilterGenerator oldWidget) {
+    super.didUpdateWidget(oldWidget);
 
-    var list = [
-      ...widget.filters,
-      ...widget.tuneAdjustments.map((item) => item.matrix),
-    ];
-
-    for (int i = 0; i < list.length; i++) {
-      tree = ColorFiltered(
-        colorFilter: ColorFilter.matrix(list[i]),
-        child: tree,
-      );
+    if (oldWidget.playTimeNotifier != widget.playTimeNotifier) {
+      oldWidget.playTimeNotifier?.removeListener(_onTimeChanged);
+      widget.playTimeNotifier?.addListener(_onTimeChanged);
     }
-    _filteredWidget = tree;
+
+    if (oldWidget.filters.hashCode != widget.filters.hashCode ||
+        oldWidget.tuneAdjustments.hashCode != widget.tuneAdjustments.hashCode) {
+      _recomputeMatrix();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.playTimeNotifier?.removeListener(_onTimeChanged);
+    super.dispose();
+  }
+
+  void _onTimeChanged() {
+    _recomputeMatrix();
+    setState(() {});
   }
 
   /// Refreshes the filter editor by generating the filtered widget and
   /// updating the state.
   void refresh() {
-    _generateFilteredWidget();
+    _recomputeMatrix();
     setState(() {});
+  }
+
+  void _recomputeMatrix() {
+    final playTime = widget.playTimeNotifier?.value;
+    final filterStates = widget.filterStates;
+    final hasTimeline = playTime != null && filterStates != null;
+
+    final List<List<double>> effectiveFilters;
+    final List<List<double>> effectiveTunes;
+
+    if (hasTimeline) {
+      effectiveFilters = _resolveFilterStates(filterStates, playTime);
+      effectiveTunes = _resolveTuneAdjustments(
+        widget.tuneAdjustments,
+        playTime,
+      );
+    } else {
+      effectiveFilters = widget.filters;
+      effectiveTunes = widget.tuneAdjustments
+          .map((item) => item.matrix)
+          .toList();
+    }
+
+    _combinedMatrix = mergeColorMatrices(
+      filterList: effectiveFilters,
+      tuneAdjustmentList: effectiveTunes,
+    );
+  }
+
+  List<List<double>> _resolveFilterStates(
+    List<FilterState> states,
+    Duration playTime,
+  ) {
+    final result = <List<double>>[];
+    for (final fs in states) {
+      final progress = computeTimelineProgress(
+        currentTime: playTime,
+        startTime: fs.startTime,
+        endTime: fs.endTime,
+        enterDuration: fs.enterDuration,
+        exitDuration: fs.exitDuration,
+        defaultEnterCurve: widget.defaultEnterCurve,
+        defaultExitCurve: widget.defaultExitCurve,
+        enterCurve: fs.enterCurve,
+        exitCurve: fs.exitCurve,
+      );
+      if (progress <= 0.0) continue;
+      for (final matrix in fs.matrices) {
+        if (progress >= 1.0) {
+          result.add(matrix);
+        } else {
+          result.add(lerpColorMatrix(identityMatrix, matrix, progress));
+        }
+      }
+    }
+    return result;
+  }
+
+  List<List<double>> _resolveTuneAdjustments(
+    List<TuneAdjustmentMatrix> tunes,
+    Duration playTime,
+  ) {
+    final result = <List<double>>[];
+    for (final tune in tunes) {
+      final progress = computeTimelineProgress(
+        currentTime: playTime,
+        startTime: tune.startTime,
+        endTime: tune.endTime,
+        enterDuration: tune.enterDuration,
+        exitDuration: tune.exitDuration,
+        defaultEnterCurve: widget.defaultEnterCurve,
+        defaultExitCurve: widget.defaultExitCurve,
+        enterCurve: tune.enterCurve,
+        exitCurve: tune.exitCurve,
+      );
+      if (progress <= 0.0) continue;
+      if (progress >= 1.0) {
+        result.add(tune.matrix);
+      } else {
+        result.add(lerpColorMatrix(identityMatrix, tune.matrix, progress));
+      }
+    }
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.filters.hashCode != _tempFilters.hashCode ||
-        widget.tuneAdjustments.hashCode != _tempTuneAdjustments.hashCode) {
-      _generateFilteredWidget();
-    }
-    return _filteredWidget;
+    return ColorFiltered(
+      colorFilter: ColorFilter.matrix(_combinedMatrix),
+      child: widget.child,
+    );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+
+    properties
+      ..add(DiagnosticsProperty<FilterMatrix>('filters', widget.filters))
+      ..add(
+        IterableProperty<TuneAdjustmentMatrix>(
+          'tuneAdjustments',
+          widget.tuneAdjustments,
+        ),
+      )
+      ..add(
+        DiagnosticsProperty<List<double>>('combinedMatrix', _combinedMatrix),
+      );
   }
 }

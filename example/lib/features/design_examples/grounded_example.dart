@@ -47,7 +47,7 @@ class _GroundedDesignExampleState extends State<GroundedDesignExample>
         callbacks: ProImageEditorCallbacks(
           onImageEditingStarted: onImageEditingStarted,
           onImageEditingComplete: onImageEditingComplete,
-          onCloseEditor: onCloseEditor,
+          onCloseEditor: (editorMode) => onCloseEditor(editorMode: editorMode),
           mainEditorCallbacks: MainEditorCallbacks(
             helperLines: HelperLinesCallbacks(onLineHit: vibrateLineHit),
             onStartCloseSubEditor: (value) {
@@ -75,6 +75,16 @@ class _GroundedDesignExampleState extends State<GroundedDesignExample>
             hideToolbarOnInteraction: false,
           ),
           mainEditor: MainEditorConfigs(
+            tools: [
+              SubEditorMode.paint,
+              SubEditorMode.text,
+              SubEditorMode.cropRotate,
+              SubEditorMode.tune,
+              SubEditorMode.filter,
+              SubEditorMode.blur,
+              SubEditorMode.emoji,
+              SubEditorMode.sticker,
+            ],
             widgets: MainEditorWidgets(
               appBar: (editor, rebuildStream) => null,
               bottomBar: (editor, rebuildStream, key) => ReactiveWidget(
@@ -128,11 +138,11 @@ class _GroundedDesignExampleState extends State<GroundedDesignExample>
                               ),
                               actions: <Widget>[
                                 ElevatedButton(
-                                  child: const Text('Got it'),
+                                  child: const Text('Okay'),
                                   onPressed: () {
                                     if (newColor != null) {
                                       setState(() =>
-                                          editorState.colorChanged(newColor!));
+                                          editorState.setColor(newColor!));
                                     }
                                     Navigator.of(context).pop();
                                   },
@@ -191,7 +201,7 @@ class _GroundedDesignExampleState extends State<GroundedDesignExample>
                               ),
                               actions: <Widget>[
                                 ElevatedButton(
-                                  child: const Text('Got it'),
+                                  child: const Text('Okay'),
                                   onPressed: () {
                                     if (newColor != null) {
                                       setState(() =>
@@ -356,8 +366,7 @@ class _GroundedDesignExampleState extends State<GroundedDesignExample>
             ),
           ),
           stickerEditor: StickerEditorConfigs(
-            enabled: true,
-            buildStickers: (setLayer, scrollController) => DemoBuildStickers(
+            builder: (setLayer, scrollController) => DemoBuildStickers(
                 categoryColor: const Color(0xFF161616),
                 setLayer: setLayer,
                 scrollController: scrollController),
@@ -368,6 +377,59 @@ class _GroundedDesignExampleState extends State<GroundedDesignExample>
                 message: message,
                 configs: configs,
               ),
+            ),
+          ),
+          clipsEditor: ClipsEditorConfigs(
+            style: const ClipsEditorStyle(
+              reversedClipsList: true,
+            ),
+            widgets: ClipsEditorWidgets(
+              appBar: (editorState, rebuildStream) => null,
+              bottomBar: (editorState, rebuildStream) {
+                return ReactiveWidget(
+                  builder: (_) {
+                    return GroundedClipsBar(
+                      configs: editorState.configs,
+                      callbacks: editorState.callbacks,
+                      editor: editorState,
+                    );
+                  },
+                  stream: rebuildStream,
+                );
+              },
+              editClipAppBar: (editorState, rebuildStream) => null,
+              editClipBottomBar: (editorState, rebuildStream) {
+                return ReactiveWidget(
+                  builder: (_) {
+                    return GroundedClipEditorBar(
+                      configs: editorState.configs,
+                      callbacks: editorState.callbacks,
+                      editor: editorState,
+                    );
+                  },
+                  stream: rebuildStream,
+                );
+              },
+            ),
+          ),
+          audioEditor: AudioEditorConfigs(
+            style: const AudioEditorStyle(
+              reversedTrackList: true,
+            ),
+            widgets: AudioEditorWidgets(
+              appBar: (editorState, rebuildStream) => null,
+              bottomBar: (editorState, rebuildStream) {
+                return ReactiveWidget(
+                  builder: (_) {
+                    return GroundedAudioBar(
+                      configs: editorState.configs,
+                      callbacks: editorState.callbacks,
+                      editor: editorState,
+                    );
+                  },
+                  stream: rebuildStream,
+                );
+              },
             ),
           ),
         ),

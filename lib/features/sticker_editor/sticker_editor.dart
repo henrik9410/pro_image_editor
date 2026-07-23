@@ -1,4 +1,3 @@
-// Flutter imports:
 import 'package:flutter/material.dart';
 
 import '/core/mixins/converted_configs.dart';
@@ -50,13 +49,11 @@ class StickerEditorState extends State<StickerEditor>
 
   @override
   Widget build(BuildContext context) {
-    assert(
-      widget.configs.stickerEditor.buildStickers != null,
-      '`buildStickers` is required',
-    );
+    assert(stickerEditorConfigs.builder != null, '`builder` is required');
 
     return ExtendedPopScope(
-      child: widget.configs.stickerEditor.buildStickers!(
+      canPop: stickerEditorConfigs.enableGesturePop,
+      child: stickerEditorConfigs.builder!.call(
         setLayer,
         widget.scrollController,
       ),

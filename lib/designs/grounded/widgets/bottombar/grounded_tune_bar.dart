@@ -4,6 +4,7 @@ import '/core/mixins/converted_configs.dart';
 import '/core/mixins/editor_configs_mixin.dart';
 import '/designs/grounded/grounded_design.dart';
 import '/pro_image_editor.dart';
+import '/shared/widgets/editor_scrollbar.dart';
 
 /// A widget that represents a grounded tune adjustment bar for the editor.
 ///
@@ -95,38 +96,37 @@ class _GroundedTuneBarState extends State<GroundedTuneBar>
               constraints: const BoxConstraints(maxWidth: 800),
               child: RepaintBoundary(
                 child: StreamBuilder(
-                    stream: tuneEditor.uiStream.stream,
-                    builder: (context, snapshot) {
-                      var activeOption = tuneEditor
-                          .tuneAdjustmentList[tuneEditor.selectedIndex];
-                      var activeMatrix = tuneEditor
-                          .tuneAdjustmentMatrix[tuneEditor.selectedIndex];
-                      return SizedBox(
-                        height: 40,
-                        child: Slider(
-                          min: activeOption.min,
-                          max: activeOption.max,
-                          divisions: activeOption.divisions,
-                          label: (activeMatrix.value *
-                                  activeOption.labelMultiplier)
-                              .round()
-                              .toString(),
-                          value: activeMatrix.value,
-                          onChangeStart: tuneEditor.onChangedStart,
-                          onChanged: tuneEditor.onChanged,
-                          onChangeEnd: tuneEditor.onChangedEnd,
-                        ),
-                      );
-                    }),
+                  stream: tuneEditor.uiStream.stream,
+                  builder: (context, snapshot) {
+                    var activeOption =
+                        tuneEditor.tuneAdjustmentList[tuneEditor.selectedIndex];
+                    var activeMatrix = tuneEditor
+                        .tuneAdjustmentMatrix[tuneEditor.selectedIndex];
+                    return SizedBox(
+                      height: 40,
+                      child: Slider(
+                        min: activeOption.min,
+                        max: activeOption.max,
+                        divisions: activeOption.divisions,
+                        label:
+                            (activeMatrix.value * activeOption.labelMultiplier)
+                                .round()
+                                .toString(),
+                        value: activeMatrix.value,
+                        onChangeStart: tuneEditor.onChangedStart,
+                        onChanged: tuneEditor.onChanged,
+                        onChangeEnd: tuneEditor.onChangedEnd,
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             const SizedBox(height: 4),
             SizedBox(
               height: kBottomNavigationBarHeight,
-              child: Scrollbar(
+              child: EditorScrollbar(
                 controller: tuneEditor.bottomBarScrollCtrl,
-                scrollbarOrientation: ScrollbarOrientation.bottom,
-                thickness: isDesktop ? null : 0,
                 child: SingleChildScrollView(
                   controller: tuneEditor.bottomBarScrollCtrl,
                   scrollDirection: Axis.horizontal,
@@ -136,24 +136,26 @@ class _GroundedTuneBarState extends State<GroundedTuneBar>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       mainAxisSize: MainAxisSize.min,
                       children: List.generate(
-                          tuneEditor.tuneAdjustmentMatrix.length, (index) {
-                        var item = tuneEditor.tuneAdjustmentList[index];
-                        return FlatIconTextButton(
-                          label: Text(item.label, style: bottomTextStyle),
-                          icon: Icon(
-                            item.icon,
-                            size: bottomIconSize,
-                            color: tuneEditor.selectedIndex == index
-                                ? kImageEditorPrimaryColor
-                                : Colors.white,
-                          ),
-                          onPressed: () {
-                            tuneEditor.setState(() {
-                              tuneEditor.selectedIndex = index;
-                            });
-                          },
-                        );
-                      }),
+                        tuneEditor.tuneAdjustmentMatrix.length,
+                        (index) {
+                          var item = tuneEditor.tuneAdjustmentList[index];
+                          return FlatIconTextButton(
+                            label: Text(item.label, style: bottomTextStyle),
+                            icon: Icon(
+                              item.icon,
+                              size: bottomIconSize,
+                              color: tuneEditor.selectedIndex == index
+                                  ? kImageEditorPrimaryColor
+                                  : Colors.white,
+                            ),
+                            onPressed: () {
+                              tuneEditor.setState(() {
+                                tuneEditor.selectedIndex = index;
+                              });
+                            },
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),

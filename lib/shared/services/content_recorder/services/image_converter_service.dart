@@ -62,15 +62,20 @@ class ImageConverterService {
     required ui.Image image,
     required String id,
     OutputFormat? format,
+    bool? cropToDrawingBounds,
   }) async {
     format ??= configs.outputFormat;
+    final crop = cropToDrawingBounds ?? configs.cropToDrawingBounds;
 
     if (configs.enableIsolateGeneration) {
       try {
         /// For the case multithreading isn't supported we fall back to the
         /// main thread.
         if (!threadManager.isSupported) {
-          return await _convertOnMainThread(image: image);
+          return await _convertOnMainThread(
+            image: image,
+            cropToDrawingBounds: crop,
+          );
         }
 
         return await threadManager.send(
@@ -78,15 +83,22 @@ class ImageConverterService {
             id: id,
             image: image,
             format: format,
+            cropToDrawingBounds: crop,
           ),
         );
       } catch (e) {
         // Fallback to the main thread.
         debugPrint('Fallback to main thread: $e');
-        return await _convertOnMainThread(image: image);
+        return await _convertOnMainThread(
+          image: image,
+          cropToDrawingBounds: crop,
+        );
       }
     } else {
-      return await _convertOnMainThread(image: image);
+      return await _convertOnMainThread(
+        image: image,
+        cropToDrawingBounds: crop,
+      );
     }
   }
 
@@ -101,17 +113,22 @@ class ImageConverterService {
   /// if the conversion fails.
   Future<Uint8List?> _convertOnMainThread({
     required ui.Image image,
+    required bool cropToDrawingBounds,
   }) async {
-    if (configs.cropToDrawingBounds) {
+    if (cropToDrawingBounds) {
       image = await dartUiRemoveTransparentImgAreas(image) ?? image;
     }
     return await encodeImageFromThreadRequest(
       ThreadRequest(
         id: 'id',
-        image: await convertFlutterUiToImage(image),
+        image: await convertFlutterUiToImage(
+          image,
+          imageByteFormat: configs.captureImageByteFormat,
+        ),
         outputFormat: configs.outputFormat,
         singleFrame: configs.singleFrame,
         jpegQuality: configs.jpegQuality,
+        jpegBackgroundColor: configs.jpegBackgroundColor.toARGB32(),
         jpegChroma: configs.jpegChroma,
         pngFilter: configs.pngFilter,
         pngLevel: configs.pngLevel,
@@ -134,17 +151,22 @@ class ImageConverterService {
     required ui.Image image,
     required String id,
     required OutputFormat format,
+    required bool cropToDrawingBounds,
   }) async {
     return ImageConvertThreadRequest(
       id: id,
-      generateOnlyImageBounds: configs.cropToDrawingBounds,
+      generateOnlyImageBounds: cropToDrawingBounds,
       outputFormat: format,
       jpegChroma: configs.jpegChroma,
       jpegQuality: configs.jpegQuality,
+      jpegBackgroundColor: configs.jpegBackgroundColor.toARGB32(),
       pngFilter: configs.pngFilter,
       pngLevel: configs.pngLevel,
       singleFrame: configs.singleFrame,
-      image: await convertFlutterUiToImage(image),
+      image: await convertFlutterUiToImage(
+        image,
+        imageByteFormat: configs.captureImageByteFormat,
+      ),
     );
   }
 }

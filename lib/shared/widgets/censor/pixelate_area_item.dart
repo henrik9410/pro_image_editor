@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '/features/main_editor/providers/image_infos_provider.dart';
 import '/shared/services/shader_manager.dart';
 import 'abstract/censor_area_item.dart';
+import 'constants/censor_backdrop_key.dart';
 
 /// A widget that applies a pixelate effect to a defined area.
 ///
@@ -13,11 +14,7 @@ import 'abstract/censor_area_item.dart';
 class PixelateAreaItem extends CensorAreaItem {
   /// Creates a [PixelateAreaItem] with the specified [censorConfigs] and
   /// optional [size].
-  const PixelateAreaItem({
-    super.key,
-    required super.censorConfigs,
-    super.size,
-  });
+  const PixelateAreaItem({super.key, required super.censorConfigs, super.size});
 
   @override
   Widget build(BuildContext context) {
@@ -45,21 +42,22 @@ class PixelateAreaItem extends CensorAreaItem {
 
     /// Load shader
     return FutureBuilder(
-        future: ShaderManager.instance.loadShader(ShaderMode.pixelate),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const CircularProgressIndicator();
-          } else if (snapshot.hasError) {
-            assert(false, 'Error loading shader: ${snapshot.error}');
-            return const SizedBox.shrink();
-          } else if (!snapshot.hasData) {
-            assert(false, 'Shader is null');
-            return const SizedBox.shrink();
-          }
+      future: ShaderManager.instance.loadShader(ShaderMode.pixelate),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const CircularProgressIndicator();
+        } else if (snapshot.hasError) {
+          assert(false, 'Error loading shader: ${snapshot.error}');
+          return const SizedBox.shrink();
+        } else if (!snapshot.hasData) {
+          assert(false, 'Shader is null');
+          return const SizedBox.shrink();
+        }
 
-          FragmentShader shader = snapshot.data!;
-          return _buildFilter(shader: shader, child: child, context: context);
-        });
+        FragmentShader shader = snapshot.data!;
+        return _buildFilter(shader: shader, child: child, context: context);
+      },
+    );
   }
 
   Widget _buildFilter({
@@ -84,6 +82,7 @@ class PixelateAreaItem extends CensorAreaItem {
     return BackdropFilter(
       filter: ImageFilter.shader(shader),
       blendMode: censorConfigs.pixelateBlendMode,
+      backdropGroupKey: kCensorBackdropGroupKey,
       child: child,
     );
   }

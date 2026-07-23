@@ -1,42 +1,25 @@
-## PR Checklist
-Please check if your PR fulfills the following requirements:
+<!--
+  Thanks for contributing!
 
-- [ ] The commit message follows our guidelines: https://github.com/hm21/pro_image_editor/blob/stable/CONTRIBUTING.md#style-guides
-- [ ] Tests for the changes have been added (for bug fixes / features)
-- [ ] Docs have been added / updated (for bug fixes / features)
+  Provide a description of your changes below and a general summary in the title
 
+  Please look at the following checklist to ensure that your PR can be accepted quickly:
+-->
 
-## PR Type
-What kind of change does this PR introduce?
+## Description
 
-<!-- Please check the one that applies to this PR using "x". -->
+<!--- Describe your changes in detail -->
 
-- [ ] Bugfix
-- [ ] Feature
-- [ ] Code style update (formatting, local variables)
-- [ ] Refactoring (no functional changes, no api changes)
-- [ ] Build related changes
-- [ ] CI related changes
-- [ ] Documentation content changes
-- [ ] Other... Please describe:
+**Related Issue:** Closes #
 
+## Type of Change
 
-## What is the current behavior?
-<!-- Please describe the current behavior that you are modifying, or link to a relevant issue. -->
+<!--- Put an `x` in all the boxes that apply: -->
 
-Issue Number: N/A
-
-
-## What is the new behavior?
-
-
-## Does this PR introduce a breaking change?
-
-- [ ] Yes
-- [ ] No
-
-
-<!-- If this PR contains a breaking change, please describe the impact and migration path for existing applications below. -->
-
-
-## Other information
+- [ ] ✨ New feature (non-breaking change which adds functionality)
+- [ ] 🛠️ Bug fix (non-breaking change which fixes an issue)
+- [ ] ❌ Breaking change (fix or feature that would cause existing functionality to change)
+- [ ] 🧹 Code refactor
+- [ ] ✅ Build configuration change
+- [ ] 📝 Documentation
+- [ ] 🗑️ Chore

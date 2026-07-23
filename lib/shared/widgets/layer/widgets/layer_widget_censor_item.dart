@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '/core/models/editor_configs/paint_editor/censor_configs.dart';
@@ -28,17 +29,17 @@ class LayerWidgetCensorItem extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (layer.item.mode) {
       case PaintMode.pixelate:
-        return PixelateAreaItem(
-          censorConfigs: censorConfigs,
-          size: layer.size,
-        );
+        return PixelateAreaItem(censorConfigs: censorConfigs, size: layer.size);
       case PaintMode.blur:
-        return BlurAreaItem(
-          censorConfigs: censorConfigs,
-          size: layer.size,
-        );
+        return BlurAreaItem(censorConfigs: censorConfigs, size: layer.size);
       default:
         throw UnimplementedError();
     }
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    layer.debugFillProperties(properties);
   }
 }
