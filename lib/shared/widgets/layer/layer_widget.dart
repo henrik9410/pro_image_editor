@@ -473,7 +473,37 @@ class _LayerWidgetState extends State<LayerWidget>
       width: stickerEditorConfigs.initWidth * layer.scale,
       child: FittedBox(
         fit: BoxFit.contain,
-        child: Opacity(opacity: layer.opacity ?? 1, child: layer.widget),
+        child: Opacity(
+          opacity: layer.opacity ?? 1,
+          // `layer.widget` may carry its own `GlobalKey` (e.g. so stateful
+          // content like a video player survives this widget reshaping on
+          // selection). This `LayerWidget` is also rendered a second,
+          // concurrently-mounted time as a non-interactive backdrop preview
+          // by `LayerStack` (crop/rotate, filter, blur and tune editors)
+          // while the interactive one from `MainEditorLayers` stays mounted
+          // behind it - reusing that same key in both places at once forces
+          // Flutter to rip the element out of one and into the other,
+          // sometimes mid-layout, which crashes with "RenderObject was
+          // mutated". The backdrop copy is never interacted with, so render
+          // an unkeyed placeholder there instead of the live widget.
+          child: widget.isInteractive
+              ? layer.widget
+              : IgnorePointer(child: _buildWidgetLayerPlaceholder(layer)),
+        ),
+      ),
+    );
+  }
+
+  /// A non-interactive stand-in for [layer.widget] used by the backdrop
+  /// preview copy of this [LayerWidget] (see [_buildWidgetLayer]), so its
+  /// `GlobalKey`d content isn't duplicated across two concurrently-mounted
+  /// trees.
+  Widget _buildWidgetLayerPlaceholder(WidgetLayer layer) {
+    return ColoredBox(
+      color: Colors.black12,
+      child: SizedBox(
+        width: stickerEditorConfigs.initWidth * layer.scale,
+        height: stickerEditorConfigs.initWidth * layer.scale,
       ),
     );
   }

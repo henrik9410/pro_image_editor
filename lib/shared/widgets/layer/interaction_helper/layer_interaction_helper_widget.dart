@@ -140,6 +140,40 @@ class _LayerInteractionHelperWidgetState
     with ImageEditorConvertedConfigs, SimpleConfigsAccessState {
   final _rebuildStream = StreamController.broadcast();
 
+  /// Preserves the identity - and therefore the `State`/`RenderObject` (e.g.
+  /// a running `VideoPlayerController`, a web platform view's DOM node, or
+  /// any other stateful content inside [LayerInteractionHelperWidget.child])
+  /// - of [widget.child] across this widget's own selection-driven reshaping.
+  ///
+  /// [build] below returns structurally different ancestor trees around
+  /// [widget.child] depending on [widget.selected] / [widget.isInteractive]
+  /// (no wrapper, a `DeferPointer`, or `TooltipVisibility` > `DeferPointer` >
+  /// `Stack`) so the selection border/buttons can be layered on top without
+  /// [widget.child] ever needing to know about selection. Flutter matches a
+  /// widget position across rebuilds purely by `(runtimeType, key)`; since
+  /// "no wrapper", `DeferPointer` and `TooltipVisibility` are different
+  /// types, every selection/deselection previously made Flutter treat
+  /// [widget.child] as a brand new widget, tearing down and rebuilding its
+  /// entire subtree from scratch - a `ValueKey` cannot prevent that, since it
+  /// only helps Flutter match children *within the same parent's children
+  /// list*, not across a completely different ancestor chain. A `GlobalKey`
+  /// can: it lets Flutter reclaim the *same* Element (and its RenderObject)
+  /// when it reappears anywhere else in the tree within the same frame,
+  /// which is exactly what happens here every time [build] switches shape.
+  ///
+  /// Created once here (never inside [build]) and scoped to this specific
+  /// `State`, which only exists for the *interactive* copy of a layer -
+  /// `LayerStack`'s non-interactive backdrop copy (crop/rotate, filter, blur,
+  /// tune editors) has its own, entirely separate
+  /// `LayerInteractionHelperWidget` instance and therefore its own separate
+  /// key object, so exactly one Element can ever hold this key at a time.
+  /// This is unlike giving
+  /// `layer.widget` itself a `GlobalKey`, which *would* collide - see
+  /// `JinjaVideoPlaybackRegistry`'s doc comment in the consuming app for why
+  /// that approach was rejected there.
+  late final GlobalKey _contentKey =
+      GlobalKey(debugLabel: 'layer-content-${widget.layerData.id}');
+
   @override
   void dispose() {
     _rebuildStream.close();
@@ -156,17 +190,18 @@ class _LayerInteractionHelperWidgetState
   Widget build(BuildContext context) {
     String layerId = widget.layerData.id;
     var deferManager = DeferManager.maybeOf(context);
+    final content = KeyedSubtree(key: _contentKey, child: widget.child);
 
     if (!widget.isInteractive ||
         (!widget.selected && deferManager?.selectedLayerId != '')) {
       // Return the child widget directly if the layer is not interactive.
-      return widget.child;
+      return content;
     } else if (!widget.selected) {
       // Use a defer pointer if the layer is not selected, preventing
       // interaction.
       return DeferPointer(
         key: ValueKey('Defer-${deferManager?.id ?? ''}-$layerId'),
-        child: widget.child,
+        child: content,
       );
     }
 
@@ -181,7 +216,7 @@ class _LayerInteractionHelperWidgetState
           alignment: Alignment.center,
           children: [
             layerInteraction.widgets.border
-                    ?.call(widget.child, widget.layerData) ??
+                    ?.call(content, widget.layerData) ??
                 Container(
                   margin: EdgeInsets.all(
                     layerInteraction.style.buttonRadius +
@@ -191,7 +226,7 @@ class _LayerInteractionHelperWidgetState
                     foregroundPainter: LayerInteractionBorderPainter(
                       style: layerInteraction.style,
                     ),
-                    child: widget.child,
+                    child: content,
                   ),
                 ),
             ...children.map(

@@ -58,6 +58,10 @@ const Map<String, String> kMinifiedLayerKeys = {
   'decoration': 'd',
   'interaction': 'in',
   'meta': 'm',
+  'type_of_layer': 'tol',
+  'bytes': 'bs',
+  'nameImage': 'ni',
+  'mimeType': 'mt',
 
   /// Only in version < 8.0.0
   'enableInteraction': 'ei',

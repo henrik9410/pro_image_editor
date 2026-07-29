@@ -16,15 +16,32 @@ class LayerCopyManager {
   /// same type.
   /// If the layer type is not recognized, it returns the original layer
   /// unchanged.
+  ///
+  /// The copy keeps [layer]'s own `key` (see [Layer.key]) instead of the
+  /// fresh `GlobalKey()` every `Layer` subclass constructor otherwise
+  /// defaults to. Every committed edit (`addHistory` - so add/remove/update
+  /// layer, drag/rotate/scale finishing, undo/redo, and
+  /// `moveLayerListPosition`) copies the *entire* active layer list via
+  /// [copyLayerList], and `MainEditorLayers` keys each layer's widget with
+  /// exactly this `key`. A fresh key on every copy - regardless of whether
+  /// that particular layer actually changed - makes Flutter treat every
+  /// layer's widget as brand new on every such commit and tear down and
+  /// rebuild its entire subtree from scratch. That's invisible for layers
+  /// whose content is fully derived from their own fields on every build
+  /// (text/emoji/paint), but destroys any state a custom [WidgetLayer]'s
+  /// content is holding onto internally - lost selection controls, and for
+  /// stateful content, effectively a random full reinitialization on an
+  /// unrelated edit (e.g. reordering *any* layer used to also blow away
+  /// every *other* layer's widget identity).
   Layer copyLayer(Layer layer) {
     if (layer is TextLayer) {
-      return createCopyTextLayer(layer);
+      return createCopyTextLayer(layer)..key = layer.key;
     } else if (layer is EmojiLayer) {
-      return createCopyEmojiLayer(layer);
+      return createCopyEmojiLayer(layer)..key = layer.key;
     } else if (layer is PaintLayer) {
-      return createCopyPaintLayer(layer);
+      return createCopyPaintLayer(layer)..key = layer.key;
     } else if (layer is WidgetLayer) {
-      return createCopyWidgetLayer(layer);
+      return createCopyWidgetLayer(layer)..key = layer.key;
     } else {
       return layer;
     }
