@@ -467,6 +467,7 @@ class _LayerWidgetState extends State<LayerWidget>
   }
 
   /// Build the layer widget
+  /// 
   Widget _buildWidgetLayer() {
     var layer = _layer as WidgetLayer;
     return SizedBox(
