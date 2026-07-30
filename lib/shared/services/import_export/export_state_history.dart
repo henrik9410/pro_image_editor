@@ -308,7 +308,16 @@ class ExportStateHistory {
             imageInfos: imageInfos,
             targetSize: targetSize,
           );
-          widgetRecords.add(result);
+          // `widgetRecords` (`toMap`'s own list) is declared as
+          // `List<Uint8List>`, not `List<Uint8List?>` - adding a literal
+          // `null` here throws `type 'Null' is not a subtype of type
+          // 'Uint8List'` the moment a capture fails (e.g. the widget's
+          // content - a network image - hasn't finished loading yet), since
+          // Dart's covariant generics let this method accept that list
+          // without it actually tolerating null elements at runtime. Falling
+          // back to empty bytes keeps the export (and this layer's position
+          // in `widgetRecords`) intact instead of crashing the whole save.
+          widgetRecords.add(result ?? Uint8List(0));
         }
       }
 

@@ -396,6 +396,30 @@ class ProImageEditorState extends State<ProImageEditor>
   /// Manager class for managing the state of the editor.
   final StateManager stateManager = StateManager();
 
+  /// Color-filter matrices applied to every layer (the "foreground"), as
+  /// opposed to [StateManager.activeFilters] which only ever affects the
+  /// background image (see `openFilterEditor`/`FilteredImage`) - layers have
+  /// always been rendered completely outside that filter chain. Read by
+  /// [MainEditorInteractiveContent], which wraps `buildLayers()` in a
+  /// [ColorFilterGenerator] whenever this is non-empty - inside the same
+  /// [ContentRecorder] boundary the background filter lives in, so the
+  /// effect is captured in exports/thumbnails exactly like any other layer
+  /// content, not just visible live.
+  ///
+  /// Deliberately not tracked in [EditorStateHistory]/undo-redo or
+  /// import/export state serialization (unlike the background filter) -
+  /// call [setLayerFilters] to change it at any time; pass `[]` to remove
+  /// the effect.
+  final ValueNotifier<FilterMatrix> layerFilters = ValueNotifier<FilterMatrix>(
+    [],
+  );
+
+  /// Sets the color filters applied to every layer - see [layerFilters].
+  void setLayerFilters(FilterMatrix filters) {
+    layerFilters.value = filters;
+    mainEditorCallbacks?.handleUpdateUI();
+  }
+
   late final _stateHistoryService = MainEditorStateHistoryService(
     sizesManager: sizesManager,
     stateManager: stateManager,
@@ -540,6 +564,7 @@ class ProImageEditorState extends State<ProImageEditor>
   void dispose() {
     _rebuildController.close();
     _controllers.dispose();
+    layerFilters.dispose();
     layerInteractionManager.scaleDebounce.dispose();
     SystemChrome.setSystemUIOverlayStyle(_theme.brightness == Brightness.dark
         ? SystemUiOverlayStyle.light

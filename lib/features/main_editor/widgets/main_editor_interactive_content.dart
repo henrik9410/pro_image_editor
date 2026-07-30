@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '/core/models/editor_callbacks/pro_image_editor_callbacks.dart';
 import '/core/models/editor_configs/pro_image_editor_configs.dart';
 import '/features/crop_rotate_editor/widgets/crop_layer_painter.dart';
+import '/features/filter_editor/types/filter_matrix.dart';
+import '/features/filter_editor/utils/filter_generator/color_matrix_composer.dart';
 import '/features/main_editor/controllers/main_editor_controllers.dart';
 import '/features/main_editor/services/layer_interaction_manager.dart';
 import '/shared/services/content_recorder/widgets/content_recorder.dart';
@@ -181,12 +183,38 @@ class MainEditorInteractiveContent extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           buildImage(),
-          buildLayers(),
+          _buildFilteredLayers(),
           if (configs.mainEditor.widgets.bodyItemsRecorded != null)
             ...configs.mainEditor.widgets.bodyItemsRecorded!(
                 state, rebuildController.stream),
         ],
       ),
+    );
+  }
+
+  /// Wraps [buildLayers] in [state.layerFilters]'s color filters, if any are
+  /// set - see [ProImageEditorState.layerFilters] for why this lives here,
+  /// inside [ContentRecorder], rather than around the whole editor body.
+  ///
+  /// Always wraps in exactly one [ColorFiltered], using
+  /// [combineColorMatrices] to collapse however many matrices the selected
+  /// filter has into one (falling back to the identity matrix when there is
+  /// no filter). That keeps this wrapper's position directly above
+  /// `buildLayers()`'s subtree constant across every filter change - see
+  /// [combineColorMatrices]'s doc comment for why a *varying* number of
+  /// nested `ColorFiltered` ancestors would otherwise tear down and rebuild
+  /// every layer's content (e.g. a playing video) each time the filter
+  /// changes.
+  Widget _buildFilteredLayers() {
+    return ValueListenableBuilder<FilterMatrix>(
+      valueListenable: state.layerFilters,
+      builder: (context, filters, child) {
+        return ColorFiltered(
+          colorFilter: ColorFilter.matrix(combineColorMatrices(filters)),
+          child: child,
+        );
+      },
+      child: buildLayers(),
     );
   }
 

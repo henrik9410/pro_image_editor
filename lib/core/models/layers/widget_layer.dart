@@ -165,11 +165,11 @@ class WidgetLayer extends Layer {
       if (recordPosition != null) 'recordPosition': recordPosition,
       if (exportConfigMap.isNotEmpty) 'exportConfigs': exportConfigMap,
       'type': 'widget',
-      'opacity': opacity,
-      'type_of_layer': typeOfLayer,
-      'bytes': bytes,
-      'nameImage': nameImage,
-      'mimeType': mimeType
+      if (opacity != null) 'opacity': opacity,
+      if (typeOfLayer != null) 'type_of_layer': typeOfLayer,
+      if (bytes != null) 'bytes': bytes,
+      if (nameImage != null) 'nameImage': nameImage,
+      if (mimeType != null) 'mimeType': mimeType,
     };
   }
 

@@ -16,13 +16,15 @@ import '/shared/services/content_recorder/widgets/content_recorder.dart';
 import '/shared/utils/file_constructor_utils.dart';
 import '/shared/widgets/layer/layer_stack.dart';
 import '/shared/widgets/transform/transformed_content_generator.dart';
-import 'types/filter_matrix.dart';
 import 'widgets/filtered_image.dart';
 
+export 'types/filter_matrix.dart';
+export 'utils/filter_generator/color_matrix_composer.dart';
 export 'utils/filter_generator/filter_addons.dart';
 export 'utils/filter_generator/filter_model.dart';
 export 'utils/filter_generator/filter_presets.dart';
 export 'widgets/filter_editor_item_list.dart';
+export 'widgets/filter_generator.dart';
 
 /// The `FilterEditor` widget allows users to editing images with filters
 ///
